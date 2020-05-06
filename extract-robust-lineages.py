@@ -58,6 +58,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('lineage_csv')
     p.add_argument('output_filenames')
+    p.add_argument('-N', '--num_paths', type=int, default=0)
     args = p.parse_args()
 
     assignments, n_rows = load_taxonomy_assignments(args.lineage_csv,
@@ -67,80 +68,20 @@ def main():
     # here, 'assignments' is a dictionary where the keys are the
     # identifiers in column 1, and the values are tuples of LineagePairs.
 
-    # let's start by filtering out all lineages where there is only one
-    # at that rank/name.
-
-    # build a tree. each node is a dictionary; keys are LineagePair,
-    # values are dictionaries of next taxonomic level beneath.
-    tree = sourmash.lca.build_tree(assignments.values())
-
-    # recurse through and identify all lineages with at least two
-    # children, all the way down to species. This should ensure
-    # that there are at least two separate descendants of each node.
-    filtered_lineages = set()
-
-    def recurseme(node, path):
-        # if this node has two or more children, keep on going.
-        if len(node) >= 2:
-            for k, v in node.items():
-                downpath = list(path) + [k]   # track path => next level
-                recurseme(v, downpath)
-        elif path[-1].rank == 'species':      # whups, we are at end!
-            # add to our set of interesting lineages
-            filtered_lineages.add(tuple(path))
-        else:                                 # ends not in species, or < 2
-            pass
-
-    recurseme(tree, [])
-
-    # build another tree of just the filtered lineages --
-    ftree = sourmash.lca.build_tree(filtered_lineages)
-
-    # track all of the paths in this tree in a set.
-    lineage_paths = set()
-    def recurseme2(node, path):
-        # for each node, record this path somewhere
-        lineage_paths.add(tuple(path))
-
-        # recurse!
-        for k, v in node.items():
-            downpath = list(path) + [k]   # track path => next level
-            recurseme2(v, downpath)
-
-    recurseme2(ftree, [])
-
-    # next, build a dictionary of lineage_paths to identifiers
-    # skipping species-level ranks.
-    paths_to_idents = {}
-    for path in lineage_paths:
-        if path and path[-1].rank != 'species':
-            paths_to_idents[path] = set()
+    paths_to_idents = collections.defaultdict(set)
 
     # connect every lineage in lineage_paths to their identifiers.
     for ident, lineage in assignments.items():
-        # for every lineage that's in filtered lineages,
-        if lineage in filtered_lineages:
+        # bring back to each rank, skipping species
+        for rank in sourmash.lca.taxlist(include_strain=False):
+            if rank == 'species': continue
 
-            # bring back to each rank, skipping species
-            for rank in sourmash.lca.taxlist(include_strain=False):
-                if rank == 'species': continue
+            tup = pop_to_rank(lineage, rank)
+            assert tup
+            assert tup[-1].rank == rank
 
-                tup = pop_to_rank(lineage, rank)
-                assert tup
-                assert tup in lineage_paths
-                assert tup[-1].rank == rank
-
-                # record identifer for that lineage.
-                paths_to_idents[tup].add(ident)
-
-    # double-check: should have two identifiers for each path!
-    n_genus = 0
-    for k, v in paths_to_idents.items():
-        assert len(v) >= 2
-        if k[-1].rank == 'genus':
-            n_genus += 1
-
-    print(f'found {n_genus} genus level pairs')
+            # record identifer for that lineage.
+            paths_to_idents[tup].add(ident)
 
     # now, collect all genus level paths
     genus_paths = set()
@@ -148,13 +89,15 @@ def main():
         if k[-1].rank == 'genus':
             genus_paths.add(k)
 
-    # pick N genus-level paths --
+    # for each genus level path, pull out actual accessions for the
+    # entire path.
     genus_paths = list(sorted(genus_paths))
     extract_idents = set()
 
-    # for each genus level path, pull out some actual accessions for the
-    # entire path.
+    paths_found = 0
     for chosen_genus in genus_paths:
+        if args.num_paths and paths_found == args.num_paths:
+            break
 
         # for this chosen genus, find identifiers for lineages that differ at
         # each step. lineages may not have this, note - CTB explain later :)
@@ -166,13 +109,12 @@ def main():
         # pick a specific identifier and grab full lineage for it:
         chosen_ident = next(iter(paths_to_idents[chosen_genus]))
         chosen_lineage = assignments[chosen_ident]
-        extract_idents.add(chosen_ident)
 
         # now find differences at every level.
+        n_found = 0
         while lineage:
             rank = lineage[-1].rank
             idents = paths_to_idents[tuple(lineage)]
-            found = False
 
             for ident in idents:
                 this_lineage = assignments[ident]
@@ -181,25 +123,25 @@ def main():
                 if is_lineage_match(this_lineage, chosen_lineage, rank) and \
                    not is_lineage_match(this_lineage, chosen_lineage, last_rank):
                      d[rank] = ident
-                     found = True
+                     n_found += 1
                      break
 
             last_rank = rank
             lineage.pop()
 
-        found = True
-        for rank in sourmash.lca.taxlist():
-            if rank == 'species':
-                break
+        if n_found < 6:
+            continue                      # skip on to next genus-level path
 
-            if rank not in d:
-                found = False
+        assert n_found == 6
 
-        if not found:
-            continue                      # skip out
-        
+        paths_found += 1
 
-        print('-------------')
+        ### now, start tracking down identifiers to extract!
+
+        extract_idents.add(chosen_ident)
+
+        # print some stuff out --
+        print('------------- path:', paths_found)
         for rank in sourmash.lca.taxlist():
             if rank == 'species':
                 break
@@ -207,9 +149,7 @@ def main():
             assert rank in d
             ident = d[rank]
             this_lineage = assignments[ident]
-            print(rank, ident)
-            print(sourmash.lca.display_lineage(this_lineage))
-            print('')
+            print(' ', rank, ident, sourmash.lca.display_lineage(this_lineage))
 
             extract_idents.add(ident)
 
