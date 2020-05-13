@@ -67,7 +67,7 @@ def main():
 
     # here, 'assignments' is a dictionary where the keys are the
     # identifiers in column 1, and the values are tuples of LineagePairs.
-
+    pathInfo = {}
     paths_to_idents = collections.defaultdict(set)
 
     # connect every lineage in lineage_paths to their identifiers.
@@ -118,7 +118,7 @@ def main():
 
             for ident in idents:
                 this_lineage = assignments[ident]
-                
+
                 # find ones that match at this level, and not previous level
                 if is_lineage_match(this_lineage, chosen_lineage, rank) and \
                    not is_lineage_match(this_lineage, chosen_lineage, last_rank):
@@ -135,31 +135,39 @@ def main():
         assert n_found == 6
 
         paths_found += 1
+        pathname = f"path{str(paths_found)}" # use path number as a unique identifier for each path
 
         ### now, start tracking down identifiers to extract!
 
         extract_idents.add(chosen_ident)
+        pathInfo[chosen_ident] = [pathname, last_rank, chosen_lineage]
 
         # print some stuff out --
         print('------------- path:', paths_found)
         for rank in sourmash.lca.taxlist():
-            if rank == 'species':
+            if rank == 'species': # last_rank?
+                print(' ', "species", chosen_ident, sourmash.lca.display_lineage(chosen_lineage))
                 break
 
             assert rank in d
             ident = d[rank]
             this_lineage = assignments[ident]
+            pathInfo[ident] = [pathname, rank, this_lineage]
             print(' ', rank, ident, sourmash.lca.display_lineage(this_lineage))
 
             extract_idents.add(ident)
 
     # last but not least -- extract filenames
     with open(args.output_filenames, 'wt') as fp:
+        header=["accession", "filename", "pathname", "rank", "lineage"]
+        fp.write("\t".join(header) + "\n")
         r = csv.DictReader(open(args.lineage_csv, 'rt'))
         for row in r:
-            if row['accession'] in extract_idents:
+            acc = row["accession"]
+            if acc in extract_idents:
                 filename = row['filename']
-                print(filename, file=fp)
+                pathname, rank, lineage = pathInfo[acc]
+                fp.write("\t".join([acc, filename, pathname, rank, sourmash.lca.display_lineage(this_lineage)]) + "\n")
 
 
 if __name__ == '__main__':
