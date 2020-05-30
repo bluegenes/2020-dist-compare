@@ -157,7 +157,7 @@ def main():
                 ident = d[rank]
                 this_lineage = assignments[ident]
                 print(' ', rank, ident, sourmash.lca.display_lineage(this_lineage))
-                outP.write("\t".join([ident, pathname, rank, sourmash.lca.display_lineage(chosen_lineage)]) + "\n")
+                outP.write("\t".join([ident, pathname, rank, sourmash.lca.display_lineage(this_lineage)]) + "\n")
 
                 extract_idents.add(ident)
 
