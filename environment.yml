@@ -1,0 +1,10 @@
+name: evolpaths
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - snakemake=5.26.1
+  - pandas=1.1.3
+  - seaborn=0.11.0
+  - screed

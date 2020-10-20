@@ -64,7 +64,7 @@ def main():
 
 
     assignments, n_rows = load_taxonomy_assignments(args.lineage_csv,
-                                                    start_column=3)
+                                                    start_column=4)
     print(f'loaded {len(assignments)} assignments.')
 
     # here, 'assignments' is a dictionary where the keys are the
