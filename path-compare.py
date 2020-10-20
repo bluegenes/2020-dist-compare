@@ -49,7 +49,7 @@ def get_anchor_jaccard(acclist, siglist):
         jaccard_tuples.append((acc, jaccard_dist))
     return jaccard_tuples
 
-def assess_jaccard_and_containment(groupD, acc2sig, abund=False): # provide options for choosing to use abund or not? (compute either one OR both, as is done now)
+def assess_jaccard_and_containment(groupD, acc2sig, sigdir="", abund=False): # provide options for choosing to use abund or not? (compute either one OR both, as is done now)
     anchorJaccard,anchorContainment = {},{}
     for group, accInfo in groupD.items():
         steps_to_common_ancestor = {"species": 0, "genus": 1, "family": 2, "order": 3, "class": 4, "phylum": 5, "superkingdom": 6}
@@ -57,9 +57,12 @@ def assess_jaccard_and_containment(groupD, acc2sig, abund=False): # provide opti
         acclist = [""]*7
         for rank, acc in accInfo.items():
             idx = steps_to_common_ancestor[rank]
-            siglist[idx] = acc2sig[acc]
+            # load signatures
+            sig = load_file_as_signatures(os.path.join(sigdir, f"{acc}.sig", ksize=args.ksize, select_moltype=args.alphabet))
+            siglist[idx] = sig
             acclist[idx] = acc
         # assess jaccard and containment from anchor
+        import pdb;pdb.set_trace()
         anchorContainment[group] = get_anchor_containment(acclist,siglist)
         anchorJaccard[group] = get_anchor_jaccard(acclist,siglist)
     return anchorContainment, anchorJaccard
@@ -117,26 +120,27 @@ def main(args):
     group2acc = (pathinfo.groupby('path').apply(lambda x: dict(zip(x['rank'],x["accession"]))).to_dict())
 
     #load signames from file
-    all_sigfiles = sourmash.sourmash_args.load_file_list_of_signatures(args.from_file)
-    acc2sig = {}
-    for fn in all_sigfiles:
-        acc = os.path.basename(fn).rsplit(".sig")[0]
-        sig = load_file_as_signatures(fn, ksize=args.ksize, select_moltype=args.alphabet)
-        acc2sig[acc] = sig
-    import pdb;pdb.set_trace()
+    #all_sigfiles = sourmash.sourmash_args.load_file_list_of_signatures(args.from_file)
+    #acc2sig = {}
+    #for fn in all_sigfiles:
+    #    acc = os.path.basename(fn).rsplit(".sig")[0]
+    #    sig = load_file_as_signatures(fn, ksize=args.ksize, select_moltype=args.alphabet)
+    #    acc2sig[acc] = sig
 
 
     # assess and plot distances
-    dist =  assess_jaccard_and_containment(group2acc, acc2sig, abund=False)
-    dist_from_species_level = assess_group_distance(group2acc, all_sigs, args.full_compare_csv, args.full_compare_plot)
+    contain, jaccard = assess_jaccard_and_containment(group2acc, pathinfo, sigdir=args.sigdir, abund=False)
+    #dist_from_species_level = assess_group_distance(group2acc, all_sigs, args.full_compare_csv, args.full_compare_plot)
     #plot_all_distances(dist_from_species_level, args.distance_from_species_csv, args.distance_from_species_plot)
-    plot_all_distances(dist_from_species_level, args.distance_from_species_csv, args.distance_from_species_plot)
+    plot_all_distances(jaccard, args.anchor_jaccard_csv, args.anchor_jaccard_plot)
+    plot_all_distances(contain, args.anchor_containment_csv, args.anchor_containment_plot, containment=True)
 
 def cmdline(sys_args):
     "Command line entry point w/argparse action."
     p = argparse.ArgumentParser()
     p.add_argument("paths_csv")
     p.add_argument("--from-file", required=True)
+    p.add_argument("--sigdir", default="")
     p.add_argument("--alphabet", default="protein")
     p.add_argument("--ksize", default=11)
     p.add_argument("--lineages-csv", required=True)
