@@ -14,12 +14,12 @@ evolpaths: gtdb-r95-reps.pathinfo.tsv
 data_dir: /group/ctbrowngrp/gtdb-r95 #/protein_faa_reps -folder is already part of filename
 
 alphabets:
-  nucleotide:
-    ksizes: [21,31,51]
-    scaled: 1000
-    alpha_cmd: "--dna"
-    moltype: "dna"
-    ksize_multiplier: 1
+  #nucleotide:
+  #  ksizes: [21,31,51]
+  #  scaled: 1000
+  #  alpha_cmd: "--dna"
+  #  moltype: "dna"
+  #  ksize_multiplier: 1
   protein:
     ksizes: [7,9,10,11]
     scaled: 100

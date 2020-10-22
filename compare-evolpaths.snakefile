@@ -168,6 +168,9 @@ rule compare_paths_to_anchor:
         jaccard_csv=os.path.join(out_dir, "anchor-compare","{basename}.{alphabet}-k{ksize}.anchor_jaccard.csv"),
         jaccard_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_jaccard.svg"),
         contain_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_contain.svg"),
+    params:
+        sigdir = os.path.join(out_dir, "signatures"),
+        ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *5000,
@@ -177,8 +180,8 @@ rule compare_paths_to_anchor:
     conda: "envs/sourmash-dev.yml"
     shell:
         """
-        python path-compare.py {input.paths_csv} --lineages_csv {input.lineages} \
-        --alphabet {wildcards.alphabet} --ksize {wildcards.ksize} \
+        python path-compare.py {input.paths_csv} --lineages-csv {input.lineages} \
+        --alphabet {wildcards.alphabet} --ksize {params.ksize} --sigdir {params.sigdir} \
         --from-file {input.sigfile} --signature-name-column "signame" \
         --anchor-jaccard-csv {output.jaccard_csv} --anchor-jaccard-plot {output.jaccard_plot} \
         --anchor-containment-csv {output.contain_csv} --anchor-containment-plot {output.contain_plot} 2>{log}
