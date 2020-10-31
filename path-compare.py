@@ -80,14 +80,17 @@ def plot_all_distances(anchorDist, dist_csv, dist_long_csv, dist_plot=None, cont
     rank_order= ["anchor_species", "genus", "family", "order", "class", "phylum", "superkingdom"]
     # this imports with path as the rownames.
     distDF = pd.DataFrame.from_dict(distance_only, orient="index", columns= rank_order)
-    distDF.to_csv(dist_csv)
+
+    distDF.to_csv(dist_csv, index_label="evolpath")
 
     if dist_plot:
         sns.set_style("white")
         plt.figure(figsize=(11,7))
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=12)
-        sns.boxenplot(data=distDF, palette="GnBu_d")
+        distDF.drop(columns=["anchor_species"], inplace=True)
+        g=sns.boxenplot(data=distDF, palette="GnBu_d")
+        g.set(yscale="log")
         #sns.stripplot(data=distDF,color='black',alpha=0.7) #, size=8)
         plt.xlabel("Common Ancestor", size=18, labelpad=20)
         if containment:
@@ -95,6 +98,7 @@ def plot_all_distances(anchorDist, dist_csv, dist_long_csv, dist_plot=None, cont
         else:
             plt.ylabel("Jaccard", size=20, labelpad=15)
         plt.savefig(dist_plot)
+        sys.stderr.write(f"wrote plot to {dist_plot}\n")
 
     ## now, build long form data
     distanceTest = pd.DataFrame.from_dict(anchorDist, orient="index", columns= rank_order)
@@ -108,9 +112,8 @@ def plot_all_distances(anchorDist, dist_csv, dist_long_csv, dist_plot=None, cont
     distanceMelt.drop("value", axis=1, inplace=True)
     distanceMelt['rank'] = pd.Categorical(distanceMelt['rank'], rank_order)
     distanceMelt.sort_values(by=["path","rank"], inplace=True)
-    with open(dist_long_csv, "w") as out:
-        distanceMelt.to_csv(dist_long_csv, index=False)
-    sys.stderr.write(f"wrote distance csv to {dist_long_csv}\n")
+    distanceMelt.to_csv(dist_long_csv, index=False)
+    sys.stderr.write(f"wrote long distance csv to {dist_long_csv}\n")
 
 def main(args):
     # from query csv, build dictionary of group:: filenames
@@ -130,8 +133,8 @@ def main(args):
     # assess similarity
     contain, jaccard = assess_jaccard_and_containment(group2acc, pathinfo, args.ksize, args.alphabet, sigdir=args.sigdir, abund=False)
     # build dataframe and plot
-    plot_all_distances(jaccard, args.anchor_jaccard_csv, dist_plot=args.anchor_jaccard_plot)
-    plot_all_distances(contain, args.anchor_containment_csv, dist_plot=args.anchor_containment_plot, containment=True)
+    plot_all_distances(jaccard, args.anchor_jaccard_csv, args.anchor_jaccard_long_csv, dist_plot=args.anchor_jaccard_plot)
+    plot_all_distances(contain, args.anchor_containment_csv, args.anchor_containment_long_csv, dist_plot=args.anchor_containment_plot, containment=True)
 
 def cmdline(sys_args):
     "Command line entry point w/argparse action."
@@ -143,12 +146,12 @@ def cmdline(sys_args):
     p.add_argument("--ksize", default=11)
     p.add_argument("--lineages-csv", required=True)
     p.add_argument("--signature-name-column", default="filename", help="column with signature names in the sbt. By default, this should be the fasta file basename")
-    p.add_argument("--anchor-jaccard-csv", default="anchor-jaccard.csv")
-    p.add_argument("--anchor-jaccard-long-csv", default="anchor-jaccard-long.csv")
-    p.add_argument("--anchor-containment-csv", default="anchor-containment.csv")
-    p.add_argument("--anchor-containment-long-csv", default="anchor-containment-long.csv")
-    p.add_argument("--anchor-jaccard-plot", default="anchor-jaccard.boxenplot.svg")
-    p.add_argument("--anchor-containment-plot", default="anchor-containment.boxenplot.svg")
+    p.add_argument("--anchor-jaccard-csv")
+    p.add_argument("--anchor-jaccard-long-csv")
+    p.add_argument("--anchor-containment-csv")
+    p.add_argument("--anchor-containment-long-csv")
+    p.add_argument("--anchor-jaccard-plot")
+    p.add_argument("--anchor-containment-plot")
     args = p.parse_args()
     return main(args)
 

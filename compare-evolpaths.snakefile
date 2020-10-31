@@ -165,9 +165,11 @@ rule compare_paths_to_anchor:
         sigfile=os.path.join(out_dir, "{basename}.signatures.txt")
     output:
         contain_csv=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_containment.csv"),
+        contain_long_csv=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_containment_long.csv"),
         jaccard_csv=os.path.join(out_dir, "anchor-compare","{basename}.{alphabet}-k{ksize}.anchor_jaccard.csv"),
-        jaccard_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_jaccard.svg"),
-        contain_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_contain.svg"),
+        jaccard_long_csv=os.path.join(out_dir, "anchor-compare","{basename}.{alphabet}-k{ksize}.anchor_jaccard_long.csv"),
+        jaccard_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_jaccard.pdf"),
+        contain_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_contain.pdf"),
     params:
         sigdir = os.path.join(out_dir, "signatures"),
         ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
@@ -184,5 +186,6 @@ rule compare_paths_to_anchor:
         --alphabet {wildcards.alphabet} --ksize {params.ksize} --sigdir {params.sigdir} \
         --from-file {input.sigfile} --signature-name-column "signame" \
         --anchor-jaccard-csv {output.jaccard_csv} --anchor-jaccard-plot {output.jaccard_plot} \
-        --anchor-containment-csv {output.contain_csv} --anchor-containment-plot {output.contain_plot} 2>{log}
+        --anchor-containment-csv {output.contain_csv} --anchor-containment-plot {output.contain_plot} \
+        --anchor-jaccard-long-csv {output.jaccard_long_csv} --anchor-containment-long-csv {output.contain_long_csv} 2>{log}
         """
