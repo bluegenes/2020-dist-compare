@@ -6,7 +6,7 @@ output_dir: gtdb95-evolpaths/dna-input
 # type of input data (protein or nucleotide)
 input_type: nucleotide
 
-lineages_csv: gtdb-r95-reps.lineages.genome-filenames.csv
+lineages_csv: gtdb-r95-reps.lineages.dna-filenames.reordered.csv
 
 evolpaths: gtdb-r95-reps.pathinfo.tsv
 

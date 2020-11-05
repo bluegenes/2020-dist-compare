@@ -13,6 +13,28 @@ import sourmash
 from sourmash.lca import lca_utils
 #from sourmash.lca.command_rankinfo import make_lca_counts
 
+def pop_to_rank(lin, rank):
+    "Remove lineage tuples from given lineage `lin` until `rank` is reached."
+    lin = list(lin)
+
+    txl = lca_utils.taxlist()
+    before_rank = []
+    for txl_rank in txl:
+        if txl_rank != rank:
+            before_rank.append(txl_rank)
+        else:
+            break
+
+    # are we already above rank?
+    if lin and lin[-1].rank in before_rank:
+        return tuple(lin)
+
+    while lin and lin[-1].rank != rank:
+        lin.pop()
+
+    return tuple(lin)
+
+
 
 def count_shared_kmers(dblist, min_num=2):
     """
@@ -34,14 +56,14 @@ def count_shared_kmers(dblist, min_num=2):
                     assignments[hashval].add(lineage)
 
     # find kmers shared across >1 lineage at each rank
+    rev_taxlist = ['species', 'genus', 'family', 'order', 'class', 'phylum', 'superkingdom']
     shared_kmers_by_lineage = defaultdict(int)
     for hashval, lineages in assignments.items():
-        for rank in lca_utils.taxlist(strain=False).reverse():
-             import pdb;pdb.set_trace()
-             lin_at_rank = [lin.pop_to_rank(rank) for lin in lineages]
-             shared_lineages = [lin for lin,count in Counter(lin_list).items() if count>=min_num]
-             for lin in shared_lineages:
-                 shared_kmers_by_lineage[lin] += 1
+        for rank in rev_taxlist:
+            lin_at_rank = [pop_to_rank(lin, rank) for lin in lineages]
+            shared_lineages = [lin for lin,count in Counter(lin_at_rank).items() if count>=min_num]
+            for lin in shared_lineages:
+                shared_kmers_by_lineage[lin] += 1
 
     return shared_kmers_by_lineage
 
@@ -58,7 +80,7 @@ def main(args):
         hashes_by_lineage = csv.writer(fp)
         hashes_by_lineage.writerow(['rank', 'lineage', 'num_shared_kmers'])
 
-        for lineage, shared_kmer_count in counts_by_lineage.items():
+        for lineage, shared_kmer_count in counts.items():
             rank = lineage[-1].rank
             hashes_by_lineage.writerow([rank, lca_utils.display_lineage(lineage), str(shared_kmer_count)])
 
