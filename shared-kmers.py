@@ -58,14 +58,16 @@ def count_shared_kmers(dblist, min_num=2):
     # find kmers shared across >1 lineage at each rank
     rev_taxlist = ['species', 'genus', 'family', 'order', 'class', 'phylum', 'superkingdom']
     shared_kmers_by_lineage = defaultdict(int)
+    total_kmers = len(assignments.keys())
     for hashval, lineages in assignments.items():
         for rank in rev_taxlist:
             lin_at_rank = [pop_to_rank(lin, rank) for lin in lineages]
             shared_lineages = [lin for lin,count in Counter(lin_at_rank).items() if count>=min_num]
+            import pdb;pdb.set_trace()
             for lin in shared_lineages:
                 shared_kmers_by_lineage[lin] += 1
 
-    return shared_kmers_by_lineage
+    return shared_kmers_by_lineage, total_kmers
 
 
 def main(args):
@@ -73,16 +75,17 @@ def main(args):
     dblist, ksize, scaled = lca_utils.load_databases(args.db, args.ksize, args.scaled)
 
     # count all the shared kmers across these databases
-    counts = count_shared_kmers(dblist)
+    counts, total_kmer_count= count_shared_kmers(dblist)
 
     # write out
     with open(args.csv, 'wt') as fp:
         hashes_by_lineage = csv.writer(fp)
-        hashes_by_lineage.writerow(['rank', 'lineage', 'num_shared_kmers'])
+        hashes_by_lineage.writerow(['rank', 'lineage', 'num_shared_kmers', 'percent_shared_kmers'])
 
         for lineage, shared_kmer_count in counts.items():
             rank = lineage[-1].rank
-            hashes_by_lineage.writerow([rank, lca_utils.display_lineage(lineage), str(shared_kmer_count)])
+            percent_shared_kmers = float(shared_kmer_count)/total_kmer_count
+            hashes_by_lineage.writerow([rank, lca_utils.display_lineage(lineage), str(shared_kmer_count), str(round(percent_shared_kmers, 2))])
 
 
 
