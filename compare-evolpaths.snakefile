@@ -27,16 +27,20 @@ def read_lineages(samples_file, data_dir):
     # Now, verify that all genome files exist
     data_dir = sanitize_path(data_dir)
     sample_list = samples["filename"].tolist()
-    for filename in sample_list:
-        fullpath = os.path.join(data_dir, filename)
-        if not os.path.exists(fullpath):
-            print(f'** ERROR: genome file {filename} does not exist in {data_dir}')
+    with open(os.path.join(out_dir, f"{basename}.genome-filepaths.txt"), "w") as gf:
+        for filename in sample_list:
+            fullpath = os.path.join(data_dir, filename)
+            if not os.path.exists(fullpath):
+                print(f'** ERROR: genome file {filename} does not exist in {data_dir}')
+            else:
+                gf.write(fullpath + "\n")
     return samples
 
 def read_paths(pathinfo_file):
     paths = pd.read_csv(pathinfo_file, dtype=str, sep="\t", header=0)
     paths.set_index("accession", inplace=True)
     return paths
+
 
 
 lineages_info = read_lineages(config["lineages_csv"], data_dir)
@@ -70,6 +74,7 @@ for alphabet, info in alphabet_info.items():
 rule all:
     input: 
         expand(os.path.join(out_dir, "{basename}.signatures.txt"), basename=basename),
+        expand(os.path.join(out_dir, "fastani-compare", "{basename}.fastani.tsv"), basename=basename),
         expand(os.path.join(out_dir, "anchor-compare", "{basename}.{alphak}.anchor_containment.csv"), basename=basename, alphak=alpha_ksizes)
 
 
@@ -191,4 +196,21 @@ rule compare_paths_to_anchor:
         --anchor-jaccard-csv {output.jaccard_csv} --anchor-jaccard-plot {output.jaccard_plot} \
         --anchor-containment-csv {output.contain_csv} --anchor-containment-plot {output.contain_plot} \
         --anchor-jaccard-long-csv {output.jaccard_long_csv} --anchor-containment-long-csv {output.contain_long_csv} 2>{log}
+        """
+
+rule compare_via_fastANI:
+    input: 
+        os.path.join(out_dir, "{basename}.genome-filepaths.txt")
+    output:
+        os.path.join(out_dir, "fastani-compare", "{basename}.fastani.tsv"),
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *300000,
+        runtime=1200,
+    log: os.path.join(logs_dir, "fastani", "{basename}.fastani.log")
+    benchmark: os.path.join(logs_dir, "fastani", "{basename}.fastani.benchmark")
+    conda: "envs/fastani-env.yml"
+    shell:
+        """
+        fastANI --ql {input} --rl {input} -o {output} >> {log} 2>&1
         """
