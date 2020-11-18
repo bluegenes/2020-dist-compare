@@ -230,17 +230,19 @@ if input_type == "nucleotide":
             expand(os.path.join(out_dir, "{basename}.filepaths.txt"), basename=basename)
         output:
             os.path.join(out_dir, "compareM", "aai/aai_summary.tsv"),
-        threads: 1
+        threads: 20
         resources:
-            mem_mb=lambda wildcards, attempt: attempt *300000,
+            mem_mb=lambda wildcards, attempt: attempt *100000,
             runtime=1200,
+        params:
+            outdir = os.path.join(out_dir, "compareM")
         log: os.path.join(logs_dir, "compareM", "compareM.log")
         benchmark: os.path.join(logs_dir, "compareM", "compareM.benchmark")
         shadow: "shallow"
         conda: "envs/compareM-env.yml"
         shell:
             """
-            comparem aai_wf --cpus {threads} --file_ext ".fna.gz"  --sensitive {input} {output} >> {log} 2>&1
+            comparem aai_wf --cpus {threads} --file_ext ".fna.gz"  --sensitive {input} {params.outdir} >> {log} 2>&1
             """
 elif input_type == "protein":
     rule AAI_via_compareM:
@@ -252,13 +254,15 @@ elif input_type == "protein":
         resources:
             mem_mb=lambda wildcards, attempt: attempt *100000,
             runtime=1200,
+        params:
+            outdir = os.path.join(out_dir, "compareM")
         log: os.path.join(logs_dir, "compareM", "compareM.log")
         benchmark: os.path.join(logs_dir, "compareM", "compareM.benchmark")
         shadow: "shallow"
         conda: "envs/compareM-env.yml"
         shell:
             """
-            comparem aai_wf --cpus {threads} --proteins --file_ext ".faa.gz" --sensitive {input} {output} >> {log} 2>&1
+            comparem aai_wf --cpus {threads} --proteins --file_ext ".faa.gz" --sensitive {input} {params.outdir} >> {log} 2>&1
             """
 
 
