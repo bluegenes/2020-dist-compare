@@ -13,9 +13,8 @@ import numpy as np
 
 def jaccard_to_evoldist(jaccard, ksize, b1=1.0, b2=1.0):
     # proportion of observed differences
-    if jaccard == 1.0 or jaccard ==0:
-        # what should these be?
-        return jaccard
+    if jaccard ==0:
+        return 1.0 # what should this be? (jaccard of 1.0 returns 0)
     p = 1 - np.power(2*jaccard/(jaccard + 1),(1/float(ksize)))
     # corrected evolutionary distance
     d = -(b1*np.log((1-p)/b2))
