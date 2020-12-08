@@ -8,7 +8,6 @@ import screed
 import sourmash
 #from sourmash.fig import load_matrix_and_labels
 import numpy as np
-#import pandas as pd
 
 
 def jaccard_to_evoldist(jaccard, ksize, b1=1.0, b2=1.0):
@@ -20,15 +19,28 @@ def jaccard_to_evoldist(jaccard, ksize, b1=1.0, b2=1.0):
     d = -(b1*np.log((1-p)/b2))
     return d
 
+def jaccard_to_pdist(jaccard, ksize):
+    # return proportion of observed differences
+    if jaccard ==0:
+        return 1.0 # what should this be? (jaccard of 1.0 returns 0)
+    p = 1 - np.power(2*jaccard/(jaccard + 1),(1/float(ksize)))
+    return p
+
 
 def main(args):
     # from query csv or np matrix, build dictionary of group:: filenames
     jaccard_dists = np.load(open(args.jaccard_np, 'rb'))
     jaccard_to_evoldist_vectorized = np.vectorize(jaccard_to_evoldist)
+    jaccard_to_pdist_vectorized = np.vectorize(jaccard_to_pdist)
     # convert each jaccard dist value, ignoring 1.0, 0.0 values
-    evoldists = jaccard_to_evoldist_vectorized(jaccard_dists, args.ksize)
-    with open(args.evoldist_np, 'wb') as fp:
-        np.save(fp, evoldists)
+    if args.pdist_np:
+        pdists = jaccard_to_pdist_vectorized(jaccard_dists, args.ksize)
+        with open(args.pdist_np, 'wb') as fp:
+            np.save(fp, pdists)
+    if args.evoldist_np:
+        evoldists = jaccard_to_evoldist_vectorized(jaccard_dists, args.ksize, args.b1, args.b2)
+        with open(args.evoldist_np, 'wb') as fp:
+            np.save(fp, evoldists)
 
 
 def cmdline(sys_args):
@@ -36,7 +48,8 @@ def cmdline(sys_args):
     p = argparse.ArgumentParser()
     p.add_argument("jaccard_np")
     p.add_argument("--ksize", type=int, required=True)
-    p.add_argument("--evoldist_np", required=True)
+    p.add_argument("--pdist_np")
+    p.add_argument("--evoldist_np")
     p.add_argument("--b1", type=float, default=1.0)
     p.add_argument("--b2", type=float, default=1.0)
     args = p.parse_args()
