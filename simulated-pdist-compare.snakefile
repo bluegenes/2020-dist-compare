@@ -63,7 +63,7 @@ for alphabet, info in alphabet_info.items():
 
 rule all: 
     input: 
-        expand(out_dir + "/dna-input/sigs/{siminfo}.sig", siminfo= simulated_readinfo),
+        #expand(out_dir + "/dna-input/sigs/{siminfo}.sig", siminfo= simulated_readinfo),
         expand(out_dir + "/prodigal-input/sigs/{siminfo}.sig", siminfo= simulated_readinfo),
         #expand(os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt"), siminfo=simulation_info),
         #expand(os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt"), siminfo=simulation_info)
@@ -74,6 +74,10 @@ rule download_tsv:
     output: os.path.join(out_dir,"data/{siminfo}.tsv.xz")
     params:
         url=lambda w: f"https://zenodo.org/record/4034462/files/{w.siminfo}.tsv.xz?download=1"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *3000,
+        runtime=1200,
     shell:
         """
         wget -O {output} {params.url}
@@ -85,6 +89,10 @@ rule simreads_to_fasta_f1:
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
     conda: "envs/pdist-env.yml"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *3000,
+        runtime=1200,
     shell:
         """
         python simreads-to-fasta.py {input} --outdir {params.outdir}
@@ -96,6 +104,10 @@ rule simreads_to_fasta_f2:
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
     conda: "envs/pdist-env.yml"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *3000,
+        runtime=1200,
     shell:
         """
         python simreads-to-fasta.py {input} --outdir {params.outdir}
@@ -106,6 +118,10 @@ rule simreads_to_fasta_f3:
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
     conda: "envs/pdist-env.yml"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *3000,
+        runtime=1200,
     shell:
         """
         python simreads-to-fasta.py {input} --outdir {params.outdir}
@@ -163,6 +179,10 @@ rule prodigal_translate:
     output: 
         genes=os.path.join(out_dir, "data/prodigal", "{siminfo}-seed{seed}-seq{seq}.genes.fasta"),
         proteins=os.path.join(out_dir, "data/prodigal", "{siminfo}-seed{seed}-seq{seq}.proteins.fasta")
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *10000,
+        runtime=1200,
     shell:
         """
         prodigal -i {input} -o {output.genes} -a {output.proteins}
@@ -185,6 +205,8 @@ rule sourmash_sketch_protein_input:
         """
         sourmash sketch {params.sketch_params} -o {output} --name {params.signame} {input} 2> {log}
         """
+
+localrules: dnainput_signames_to_file_f1, dnainput_signames_to_file_f2, dnainput_signames_to_file_f3
 
 rule dnainput_signames_to_file_f1:
     input: expand(os.path.join(out_dir, "dna-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f1_seqnums, seq=[1,2])
@@ -209,6 +231,8 @@ rule dnainput_signames_to_file_f3:
         with open(str(output), "w") as outF:
             for inF in input:
                 outF.write(str(inF) + "\n")
+
+localrules: prodigal_signames_to_file_f1, prodigal_signames_to_file_f2, prodigal_signames_to_file_f3
 
 rule prodigal_signames_to_file_f1:
     input: expand(os.path.join(out_dir, "prodigal-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f1_seqnums, seq=[1,2])
@@ -239,10 +263,10 @@ rule jaccard_compare_sigs_dnainput:
     output: 
         csv=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.jaccard.csv"),
         np=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.jaccard.np"),
-    threads: 1
     params:
         alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
         ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
+    threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=6000,
@@ -262,10 +286,10 @@ rule jaccard_compare_sigs_prodigal:
     output:
         csv=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.csv"),
         np=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.np"),
-    threads: 1
     params:
         alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
         ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
+    threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=6000,
@@ -286,10 +310,10 @@ rule containment_compare_sigs_dnainput:
     output:
         csv=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.containment.csv"),
         np=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.containment.np"),
-    threads: 1
     params:
         alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
         ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
+    threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=6000,
@@ -309,10 +333,10 @@ rule containment_compare_sigs_prodigal:
     output:
         csv=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.containment.csv"),
         np=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.containment.np"),
-    threads: 1
     params:
         alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
         ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
+    threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=6000,
@@ -328,6 +352,8 @@ rule containment_compare_sigs_prodigal:
         """
 
 # write lists of files to aggregate
+localrules: write_simulation_filelist, write_jaccard_dnainput_filelist, write_jaccard_prodigal_filelist, write_containment_dnainput_filelist, write_containment_prodigal_filelist
+
 rule write_simulation_filelist:
     input: expand(out_dir + "data/{siminfo}.tsv.xz", siminfo=simulation_info)
     output: out_dir + "data/simulation-info.filelist.txt"
@@ -370,9 +396,13 @@ rule write_containment_prodigal_filelist:
 
 # aggregate info from multiple tsv files --> single csv file
 rule aggregate_simulation_info:
-    input: out_dir + "data/simulation-info.filelist.txt" 
-    output: out_dir + "data/simulation-info.tsv"
+    input: os.path.join(out_dir, "data/simulation-info.filelist.txt")
+    output: os.path.join(out_dir, "data/simulation-info.csv.gz")
     conda: "envs/pdist-env.yml"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *10000,
+        runtime=600,
     shell:
         """
         python aggregate-simulation-info.py {input} {output}
@@ -381,11 +411,15 @@ rule aggregate_simulation_info:
 # aggregate simulation info + sourmash compare info
 rule aggregate_dnainput_compare:
     input:
-        jaccard = out_dir + "compare/dnainput-jaccard.filelist.txt",
-        containment = out_dir + "compare/dnainput-containment.filelist.txt",
-        simulation_info =  out_dir + "data/simulation-info.tsv"
-    output: out_dir + "results/estimated-distances.dnainput.csv"
+        jaccard = os.path.join(out_dir, "compare/dnainput-jaccard.filelist.txt"),
+        containment = os.path.join(out_dir,"compare/dnainput-containment.filelist.txt"),
+        simulation_info =  os.path.join(out_dir, "data/simulation-info.csv.gz"),
+    output: os.path.join(out_dir, "results/estimated-distances.dnainput.csv.gz ")
     conda: "envs/pdist-env.yml"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *10000,
+        runtime=6000,
     shell:
         """
         python aggregate-compare-info.py --jaccard-files {input.jaccard} --containment-files {input.containment} --siminfo {input.simulation_info} --output {output}
