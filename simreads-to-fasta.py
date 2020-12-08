@@ -14,9 +14,9 @@ def seq_to_file(row, outdir):
     seq1 = row["seq1"].replace("-", "")
     seq2 = row["seq2"].replace("-", "")
     basename = row["name"]
-    name1 = basename + "_seq1"
+    name1 = basename + "-seq1"
     file1 = os.path.join(outdir, name1 + ".fasta")
-    name2 = basename + "_seq2"
+    name2 = basename + "-seq2"
     file2 = os.path.join(outdir, name2 + ".fasta")
     with open(file1, "w") as f1:
         f1.write(">" + name1 + "\n" + seq1 + "\n")

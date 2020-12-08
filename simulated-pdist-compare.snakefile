@@ -31,7 +31,7 @@ f3_seqnums=[*range(401, 601)]
 #f1: equal frequencies, i.e. freq(A) = freq(C) = freq(G) = freq(T) = 0.25,
 #f2: GC-rich, i.e. freq(A) = 0.1, freq(C) = 0.3, freq(G) = 0.4, freq(T) = 0.2,
 #f3: AT-rich, i.e. freq(A) = freq(T) = 0.4, freq(C) = freq(G) = 0.1.
-nt_frequencies = ["1", "f2", "f3"]
+nt_frequencies = ["f1", "f2", "f3"]
 # evolutionary model
 # model parameters (i.e. GTR: six relative rates of nucleotide substitution; GTR+Γ: six rates and one Γ shape parameter)
 # nogam = GTR; gamma = GTR + Γ  
@@ -39,9 +39,9 @@ evolmodels = ["nogam", "gamma"]
 
 simulation_info = expand("data-d{d}-{freq}-{model}", d = sim_distances, freq =nt_frequencies, model=evolmodels)
 
-f1_info = expand("{siminfo}-seed{seed}-seq{seq}", siminfo = simulation_info, seed = f1_seqnums, seq=[1,2])
-f2_info = expand("{siminfo}-seed{seed}-seq{seq}", siminfo = simulation_info, seed = f2_seqnums, seq=[1,2])
-f3_info = expand("{siminfo}-seed{seed}-seq{seq}", siminfo = simulation_info, seed = f3_seqnums, seq=[1,2])
+f1_info = expand("data-d{d}-f1-{model}-seed{seed}-seq{seq}", d = sim_distances, model=evolmodels, seed = f1_seqnums, seq=[1,2])
+f2_info = expand("data-d{d}-f2-{model}-seed{seed}-seq{seq}", d = sim_distances, model=evolmodels, seed = f2_seqnums, seq=[1,2])
+f3_info = expand("data-d{d}-f3-{model}-seed{seed}-seq{seq}", d = sim_distances, model=evolmodels, seed = f3_seqnums, seq=[1,2])
 simulated_readinfo = f1_info + f2_info + f3_info
 
 alphabet_info = config["alphabets"]
@@ -65,6 +65,8 @@ rule all:
     input: 
         expand(out_dir + "/dna-input/sigs/{siminfo}.sig", siminfo= simulated_readinfo),
         expand(out_dir + "/prodigal-input/sigs/{siminfo}.sig", siminfo= simulated_readinfo),
+        #expand(os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt"), siminfo=simulation_info),
+        #expand(os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt"), siminfo=simulation_info)
         #out_dir + "/results/estimated-distances.dnainput.csv",
         #out_dir + "/results/estimated-distances.prodigal.csv" ,
 
@@ -137,9 +139,9 @@ rule sourmash_sketch_nucleotide_input:
     params:
         nucl_sketch_params = build_sketch_params("nucleotide", input_type="nucleotide"),
         translate_sketch_params = build_sketch_params("protein", input_type="nucleotide"),
-        nucl_sketch=os.path.join(out_dir, "sigs", "{siminfo}-seed{seed}-seq{seq}.nucleotide.sig"),
-        prot_sketch=os.path.join(out_dir, "sigs", "{siminfo}-seed{seed}-seq{seq}.translate.sig"),
-        signame = lambda w: f"data-{w.d}-{w.freq}-{w.model}-seed{w.seed}-seq{w.seq}",
+        nucl_sketch=os.path.join(out_dir, "dna-input/sigs", "{siminfo}-seed{seed}-seq{seq}.nucleotide.sig"),
+        prot_sketch=os.path.join(out_dir, "dna-input/sigs", "{siminfo}-seed{seed}-seq{seq}.translate.sig"),
+        signame = lambda w: f"{w.siminfo}-seed{w.seed}-seq{w.seq}",
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *1000,
@@ -171,7 +173,7 @@ rule sourmash_sketch_protein_input:
     output: os.path.join(out_dir, "prodigal-input/sigs/{siminfo}-seed{seed}-seq{seq}.sig")
     params:
         sketch_params = build_sketch_params("protein", input_type="protein"),
-        signame = lambda w: f"data-{w.d}-{w.freq}-{w.model}-seed{w.seed}-seq{w.seq}-prodigal",
+        signame = lambda w: f"{w.siminfo}-seed{w.seed}-seq{w.seq}-prodigal",
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *1000,
