@@ -73,6 +73,7 @@ checkpoint simreads_to_fasta:
     output: expand(os.path.join(out_dir, "data/simreads", "data-d{{d}}-{{freq}}-{{model}}-seed{seed}-seq{seq}.fasta"), seed = seqnums, seq=[1,2])
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
+    conda: "envs/pdist-env.yml"
     shell:
         """
         python simreads-to-fasta.py {input} --outdir {params.outdir}
@@ -137,8 +138,7 @@ rule prodigal_translate:
 
 rule sourmash_sketch_protein_input:
     input: os.path.join(out_dir, "data/prodigal", "data-d{d}-{freq}-{model}-seed{seed}-seq{seq}.proteins.fasta") 
-    output:
-        out_dir + "prodigal-input/sigs/data-d{d}-{freq}-{model}-seed{seed}-seq{seq}.sig"
+    output: os.path.join(out_dir, "prodigal-input/sigs/data-d{d}-{freq}-{model}-seed{seed}-seq{seq}.sig")
     params:
         sketch_params = build_sketch_params("protein", input_type="protein"),
         signame = lambda w: f"data-{w.d}-{w.freq}-{w.model}-seed{w.seed}-seq{w.seq}-prodigal",
