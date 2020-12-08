@@ -28,7 +28,7 @@ def main(args):
     # get basename for these sequences
     seq_basename = (args.input_tsv).rsplit(".tsv")[0]
     # Read simulation csv
-    info_csv = pd.read_csv(args.input_tsv, sep = "\t")
+    info_csv = pd.read_csv(args.input_tsv, sep = "\t", compression="xz")
     #make name for each sequence
     info_csv["name"] = seq_basename + "-seed" + info_csv["seed"].apply(str)
     info_csv.apply(seq_to_file, axis=1, args=(str(args.outdir),))
