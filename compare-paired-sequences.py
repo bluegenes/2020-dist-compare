@@ -18,6 +18,23 @@ PROTEIN_SCALED = 100
 DAYHOFF_SCALED = 100
 HP_SCALED = 100
 
+def determine_appropriate_fresh_minhash(alphabet, ksize, scaled_val, ignore_abundance=False):
+    # default behavior is to track abundance
+    abund = not ignore_abundance
+    if alphabet == "nucleotide":
+        mh = sourmash.MinHash(ksize=ksize, n=0, scaled=scaled_val, track_abundance=abund, is_protein=False)
+    elif alphabet == "protein":
+        k=ksize*3 ## need to multiply bt 3 to get same ksize, bc add_protein method does k/3
+        mh = sourmash.MinHash(ksize=k, n=0, scaled=scaled_val, track_abundance=abund, is_protein=True, dayhoff=False, hp=False)
+    elif alphabet == "dayhoff":
+        k=ksize*3
+        mh = sourmash.MinHash(ksize=k, n=0, scaled=scaled_val, track_abundance=abund, is_protein=True, dayhoff=True, hp=False)
+    elif alphabet == "hp":
+        k=ksize*3
+        mh = sourmash.MinHash(ksize=k, n=0, scaled=scaled_val, track_abundance=abund, is_protein=True, dayhoff=False, hp=True)
+    return mh
+
+
 def build_sig_from_file(input_file, alphabet, ksize, scaled, ignore_abundance=False, translate=False):
     sig=""
     records = records=screed.open(input_file)
@@ -30,8 +47,8 @@ def build_sig_from_file(input_file, alphabet, ksize, scaled, ignore_abundance=Fa
                 mh.add_sequence(record.sequence, force=True)
             else:
                 mh.add_protein(record.sequence)
-        # minhash --> signature, using filename as signature name ..i think this happens automatically if don't provide name?
-        sig = sourmash.SourmashSignature(mh, name=os.path.basename(input_file))
+        # minhash --> signature
+        sig = sourmash.SourmashSignature(mh, name=signame)
     return sig
 
 
@@ -43,7 +60,7 @@ def convert_to_pdist(corr, ksize):
     return p
 
 
-def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled):
+def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled_vals):
     seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".fasta")
     seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".fasta")
     translate = False
@@ -51,11 +68,11 @@ def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled):
         if input_alpha == "nucleotide" and alpha != "nucleotide":
             translate=True
         for ksize in ksizes[alpha]:
-            for scaled in scaled[alpha]:
-                jaccard_name = f"{alpha}-k{ksize}-scaled{scaled}.jaccard"
-                jaccard_pdist = f"{alpha}-k{ksize}-scaled{scaled}.jaccard-pdist"
-                containment_name = f"{alpha}-k{ksize}-scaled{scaled}.containment"
-                containment_pdist = f"{alpha}-k{ksize}-scaled{scaled}.containment-pdist"
+            for scaled in scaled_vals[alpha]:
+                jaccard_name = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.jaccard"
+                jaccard_pdist = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.jaccard-pdist"
+                containment_name = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.containment"
+                containment_pdist = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.containment-pdist"
                 # build signatures
                 seq1_sig = build_sig_from_file(seq1_fastaF, alpha, ksize, scaled, ignore_abundance=True, translate=translate)
                 seq2_sig = build_sig_from_file(seq2_fastaF, alpha, ksize, scaled, ignore_abundance=True, translate=translate)
@@ -71,6 +88,7 @@ def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled):
                 row[jaccard_pdist] = j_pdist
                 row[containment_name] = max_contain
                 row[containment_pdist] = c_pdist
+    return row
 
 
 def process_infofile(inF):
@@ -79,17 +97,17 @@ def process_infofile(inF):
     info_csv = pd.read_csv(inF, sep = "\t", compression="xz")
     info_csv["name"] = seq_basename + "-seed" + info_csv["seed"].apply(str)
     info_csv.drop(columns=["seq1", "seq2"], inplace=True)
-    info_csv.set_index("name", inplace=True)
     return info_csv
 
 def main(args):
     # get basename for these sequences
-    info_csv = process_infofile(args.info_csv)
+    info_csv = process_infofile(args.simulation_csv)
     alphabets_to_compare = ["nucleotide", "protein", "dayhoff", "hp"]
-    ksize_info = {"nucleotide": [21,31,51], "protein": [8,9,10,11,12], "dayhoff": [15,16,17,18,19], "hp": [33,35,37,39,42]}
+    ksize_info = {"nucleotide": [21,31,51], "protein": [7,8,9,10,11,12], "dayhoff": [15,16,17,18,19], "hp": [33,35,37,39,42]}
     scaled_info = {"nucleotide": [1000], "protein": [100], "dayhoff": [100], "hp": [100]}
     info_csv.apply(compare_sequences, axis=1, args=(str(args.fasta_dir), str(args.fasta_alphabet), alphabets_to_compare, ksize_info, scaled_info))
-    info_csv.to_csv(args.output_csv, index_label="name")
+    #write to csv, don't write index
+    info_csv.to_csv(args.output_csv, index=False)
 
 
 def cmdline(sys_args):
@@ -98,7 +116,7 @@ def cmdline(sys_args):
     p.add_argument("--simulation-csv")
     p.add_argument("--fasta-dir")
     p.add_argument("--fasta-alphabet", default="nucleotide")
-    p.add_argument("--output_csv")
+    p.add_argument("--output-csv")
     args = p.parse_args()
     return main(args)
 
