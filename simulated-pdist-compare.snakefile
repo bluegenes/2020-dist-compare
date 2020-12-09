@@ -63,12 +63,7 @@ for alphabet, info in alphabet_info.items():
 
 rule all: 
     input: 
-        #expand(out_dir + "/dna-input/sigs/{siminfo}.sig", siminfo= simulated_readinfo),
-        expand(out_dir + "/prodigal-input/sigs/{siminfo}.sig", siminfo= simulated_readinfo),
-        #expand(os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt"), siminfo=simulation_info),
-        #expand(os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt"), siminfo=simulation_info)
-        #out_dir + "/results/estimated-distances.dnainput.csv",
-        #out_dir + "/results/estimated-distances.prodigal.csv" ,
+        expand(os.path.join(out_dir, "compare", "{siminfo}.{fasta_type}.compare.csv.gz"), siminfo=simulation_info, fasta_type = ["dnainput", "prodigal"])
 
 rule download_tsv:
     output: os.path.join(out_dir,"data/{siminfo}.tsv.xz")
@@ -84,7 +79,7 @@ rule download_tsv:
         """
 
 rule simreads_to_fasta_f1:
-    input: os.path.join(out_dir,"data/{siminfo}.tsv.xz")
+    input: ancient(os.path.join(out_dir,"data/{siminfo}.tsv.xz"))
     output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f1_seqnums, seq=[1,2])
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
@@ -99,7 +94,7 @@ rule simreads_to_fasta_f1:
         """
 
 rule simreads_to_fasta_f2:
-    input: os.path.join(out_dir,"data/{siminfo}.tsv.xz")
+    input: ancient(os.path.join(out_dir,"data/{siminfo}.tsv.xz"))
     output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f2_seqnums, seq=[1,2])
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
@@ -113,7 +108,7 @@ rule simreads_to_fasta_f2:
         python simreads-to-fasta.py {input} --outdir {params.outdir}
         """
 rule simreads_to_fasta_f3:
-    input: os.path.join(out_dir,"data/{siminfo}.tsv.xz")
+    input: ancient(os.path.join(out_dir,"data/{siminfo}.tsv.xz"))
     output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f3_seqnums, seq=[1,2])
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
@@ -127,55 +122,9 @@ rule simreads_to_fasta_f3:
         python simreads-to-fasta.py {input} --outdir {params.outdir}
         """
 
-def build_sketch_params(output_type, input_type=config.get("input_type")):
-    sketch_cmd = ""
-    # if input is dna, build dna, translate sketches
-    if input_type == "nucleotide":
-        if output_type == "nucleotide":
-            ksizes = alphabet_info["nucleotide"]["ksizes"]
-            scaled = alphabet_info["nucleotide"]["scaled"]
-            # don't need abund for these comparisons 
-            sketch_cmd = "dna -p " + "k=" + ",k=".join(map(str, ksizes)) + f",scaled={str(scaled)}"# + ",abund"
-            return sketch_cmd
-        else:
-            sketch_cmd = "translate "
-    else:
-        # if input is protein, just build protein sketches
-        sketch_cmd = "protein "
-    for alpha in ["protein", "dayhoff", "hp"]:
-        ksizes = alphabet_info[alpha]["ksizes"]
-        scaled = alphabet_info[alpha]["scaled"]
-        sketch_cmd += " -p " + alpha + ",k=" + ",k=".join(map(str, ksizes)) + f",scaled={str(scaled)}"# + ",abund"
-    return sketch_cmd
-
-rule sourmash_sketch_nucleotide_input:
-    input: os.path.join(out_dir, "data/simreads", "{siminfo}-seed{seed}-seq{seq}.fasta") 
-    output:
-        full_sketch=os.path.join(out_dir, "dna-input/sigs/{siminfo}-seed{seed}-seq{seq}.sig")
-    params:
-        nucl_sketch_params = build_sketch_params("nucleotide", input_type="nucleotide"),
-        translate_sketch_params = build_sketch_params("protein", input_type="nucleotide"),
-        nucl_sketch=os.path.join(out_dir, "dna-input/sigs", "{siminfo}-seed{seed}-seq{seq}.nucleotide.sig"),
-        prot_sketch=os.path.join(out_dir, "dna-input/sigs", "{siminfo}-seed{seed}-seq{seq}.translate.sig"),
-        signame = lambda w: f"{w.siminfo}-seed{w.seed}-seq{w.seq}",
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *1000,
-        runtime=1200,
-    log: os.path.join(logs_dir, "sourmash_sketch_nucl_input", "{siminfo}-seed{seed}-seq{seq}.sketch.log")
-    benchmark: os.path.join(logs_dir, "sourmash_sketch_nucl_input", "{siminfo}-seed{seed}-seq{seq}.sketch.benchmark")
-    conda: "envs/sourmash-dev.yml"
-    shell:
-        """
-        sourmash sketch {params.nucl_sketch_params} -o {params.nucl_sketch} --name {params.signame} {input}  2> {log}
-        sourmash sketch {params.translate_sketch_params} -o {params.prot_sketch} --name {params.signame} {input}  2>> {log}
-        sourmash sig cat {params.nucl_sketch} {params.prot_sketch} -o {output.full_sketch} 2>> {log}
-        rm {params.nucl_sketch}
-        rm {params.prot_sketch}
-        """
-
 rule prodigal_translate:
-    input: os.path.join(out_dir, "data/simreads", "{siminfo}-seed{seed}-seq{seq}.fasta")
+    input: 
+        ancient(os.path.join(out_dir, "data/simreads", "{siminfo}-seed{seed}-seq{seq}.fasta"))
     output: 
         genes=os.path.join(out_dir, "data/prodigal", "{siminfo}-seed{seed}-seq{seq}.genes.fasta"),
         proteins=os.path.join(out_dir, "data/prodigal", "{siminfo}-seed{seed}-seq{seq}.proteins.fasta")
@@ -188,251 +137,84 @@ rule prodigal_translate:
         prodigal -i {input} -o {output.genes} -a {output.proteins}
         """
 
-rule sourmash_sketch_protein_input:
-    input: os.path.join(out_dir, "data/prodigal", "{siminfo}-seed{seed}-seq{seq}.proteins.fasta") 
-    output: os.path.join(out_dir, "prodigal-input/sigs/{siminfo}-seed{seed}-seq{seq}.sig")
-    params:
-        sketch_params = build_sketch_params("protein", input_type="protein"),
-        signame = lambda w: f"{w.siminfo}-seed{w.seed}-seq{w.seq}-prodigal",
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *1000,
-        runtime=1200,
-    log: os.path. join(logs_dir, "sourmash_sketch_prot_input", "{siminfo}-seed{seed}-seq{seq}.sketch.log")
-    benchmark: os.path.join(logs_dir, "sourmash_sketch_prot_input", "{siminfo}-seed{seed}-seq{seq}.sketch.benchmark")
-    conda: "envs/sourmash-dev.yml"
-    shell:
-        """
-        sourmash sketch {params.sketch_params} -o {output} --name {params.signame} {input} 2> {log}
-        """
-
-localrules: dnainput_signames_to_file_f1, dnainput_signames_to_file_f2, dnainput_signames_to_file_f3
-
-rule dnainput_signames_to_file_f1:
-    input: expand(os.path.join(out_dir, "dna-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f1_seqnums, seq=[1,2])
-    output: os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt")
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
-
-rule dnainput_signames_to_file_f2:
-    input: expand(os.path.join(out_dir, "dna-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f2_seqnums, seq=[1,2])
-    output: os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt")
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
-
-rule dnainput_signames_to_file_f3:
-    input: expand(os.path.join(out_dir, "dna-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f3_seqnums, seq=[1,2])
-    output: os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt")
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
-
-localrules: prodigal_signames_to_file_f1, prodigal_signames_to_file_f2, prodigal_signames_to_file_f3
-
-rule prodigal_signames_to_file_f1:
-    input: expand(os.path.join(out_dir, "prodigal-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f1_seqnums, seq=[1,2])
-    output: os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt")
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
-
-rule prodigal_signames_to_file_f2:
-    input: expand(os.path.join(out_dir, "prodigal-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f2_seqnums, seq=[1,2])
-    output: os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt")
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
-
-rule prodigal_signames_to_file_f3:
-    input: expand(os.path.join(out_dir, "prodigal-input/sigs", "{{siminfo}}-seed{seed}-seq{seq}.sig"), seed = f3_seqnums, seq=[1,2])
-    output: os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt")
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
-
-rule jaccard_compare_sigs_dnainput:
-    input: os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt")
-    output: 
-        csv=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.jaccard.csv"),
-        np=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.jaccard.np"),
-    params:
-        alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
-        ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *10000,
-        runtime=6000,
-    log: os.path.join(logs_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.jaccard.log")
-    benchmark: os.path.join(logs_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.jaccard.benchmark")
-    conda: "envs/sourmash-dev.yml"
-    shell:
-        """
-        sourmash compare -o {output.np} --csv {output.csv} \
-        --ignore-abundance --ksize {params.ksize} \
-        {params.alpha_cmd}  \
-        --from-file {input}  2> {log}
-        """
-
-rule jaccard_compare_sigs_prodigal:
-    input: os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt")
-    output:
-        csv=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.csv"),
-        np=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.np"),
-    params:
-        alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
-        ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *10000,
-        runtime=6000,
-    log: os.path.join(logs_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.log")
-    benchmark: os.path.join(logs_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.benchmark")
-    conda: "envs/sourmash-dev.yml"
-    shell:
-        """
-        sourmash compare -o {output.np} --csv {output.csv} \
-        --ignore-abundance --ksize {params.ksize} \
-        {params.alpha_cmd}  \
-        --from-file {input}  2> {log}
-        """
-
-
-rule containment_compare_sigs_dnainput:
-    input: os.path.join(out_dir, "compare", "{siminfo}.dnainput.signatures.txt")
-    output:
-        csv=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.containment.csv"),
-        np=os.path.join(out_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.containment.np"),
-    params:
-        alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
-        ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *10000,
-        runtime=6000,
-    log: os.path.join(logs_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.containment.log")
-    benchmark: os.path.join(logs_dir, "compare", "{siminfo}.dnainput.{alphabet}-k{ksize}-scaled{scaled}.containment.benchmark")
-    conda: "envs/sourmash-dev.yml"
-    shell:
-        """
-        sourmash compare -o {output.np} --csv {output.csv} \
-        --containment --ignore-abundance --ksize {params.ksize} \
-        {params.alpha_cmd}  \
-        --from-file {input}  2> {log}
-        """
-
-rule containment_compare_sigs_prodigal:
-    input: os.path.join(out_dir, "compare", "{siminfo}.prodigal.signatures.txt")
-    output:
-        csv=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.containment.csv"),
-        np=os.path.join(out_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.containment.np"),
-    params:
-        alpha_cmd = lambda w: alphabet_info[w.alphabet]["alpha_cmd"],
-        ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *10000,
-        runtime=6000,
-    log: os.path.join(logs_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.log")
-    benchmark: os.path.join(logs_dir, "compare", "{siminfo}.prodigal.{alphabet}-k{ksize}-scaled{scaled}.jaccard.benchmark")
-    conda: "envs/sourmash-dev.yml"
-    shell:
-        """
-        sourmash compare -o {output.np} --csv {output.csv} \
-        --containment --ignore-abundance --ksize {params.ksize} \
-        {params.alpha_cmd}  \
-        --from-file {input}  2> {log}
-        """
-
-# write lists of files to aggregate
-localrules: write_simulation_filelist, write_jaccard_dnainput_filelist, write_jaccard_prodigal_filelist, write_containment_dnainput_filelist, write_containment_prodigal_filelist
-
-rule write_simulation_filelist:
-    input: expand(out_dir + "data/{siminfo}.tsv.xz", siminfo=simulation_info)
-    output: out_dir + "data/simulation-info.filelist.txt"
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
-
 rule write_jaccard_dnainput_filelist:
-    input: expand(os.path.join(out_dir, "compare", "{siminfo}.dnainput.{aks}.jaccard.csv"), aks=alpha_ksize_scaled, siminfo=simulation_info)
-    output: out_dir + "compare/dnainput-jaccard.filelist.txt"
+    input: 
+        f1 = ancient(expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f1_seqnums, seq=[1,2])),
+        f2 = ancient(expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f2_seqnums, seq=[1,2])),
+        f3 = ancient(expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f3_seqnums, seq=[1,2])),
+    output: os.path.join(out_dir, "compare", "{siminfo}.dnainput.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
-            for inF in input:
+            all_inputs = input.f1 + input.f2 + input.f3
+            for inF in all_inputs:
                 outF.write(str(inF) + "\n")
 
 rule write_jaccard_prodigal_filelist:
-    input: expand(os.path.join(out_dir, "compare", "{siminfo}.prodigal.{aks}.jaccard.csv"), aks=alpha_ksize_scaled, siminfo=simulation_info)
-    output: out_dir + "compare/prodigal-jaccard.filelist.txt"
+    input:
+        f1 = ancient(expand(os.path.join(out_dir, "data/prodigal", "{{siminfo}}-seed{seed}-seq{seq}.proteins.fasta"), seed = f1_seqnums, seq=[1,2])),
+        f2 = ancient(expand(os.path.join(out_dir, "data/prodigal", "{{siminfo}}-seed{seed}-seq{seq}.proteins.fasta"), seed = f2_seqnums, seq=[1,2])),
+        f3 = ancient(expand(os.path.join(out_dir, "data/prodigal", "{{siminfo}}-seed{seed}-seq{seq}.proteins.fasta"), seed = f3_seqnums, seq=[1,2])),
+    output: os.path.join(out_dir, "compare", "{siminfo}.prodigal.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
-            for inF in input:
+            all_inputs = input.f1 + input.f2 + input.f3
+            for inF in all_inputs:
                 outF.write(str(inF) + "\n")
 
-rule write_containment_dnainput_filelist:
-    input: expand(os.path.join(out_dir, "compare", "{siminfo}.dnainput.{aks}.containment.csv"), aks=alpha_ksize_scaled, siminfo=simulation_info)
-    output: out_dir + "compare/dnainput-containment.filelist.txt"
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
+rule compare_dnainput:
+    input: 
+        simulation_info = ancient(os.path.join(out_dir,"data/{siminfo}.tsv.xz")),
+        fasta_filelist = os.path.join(out_dir, "compare", "{siminfo}.dnainput.fastalist.txt")
+    output: 
+        os.path.join(out_dir, "compare", "{siminfo}.dnainput.compare.csv.gz"),
+    params:
+        fasta_dir = os.path.join(out_dir,"data/simreads")
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *50000,
+        runtime=6000,
+    log: os.path.join(logs_dir, "compare", "{siminfo}.dnainput.log")
+    benchmark: os.path.join(logs_dir, "compare", "{siminfo}.dnainput.benchmark")
+    conda: "envs/sourmash-dev.yml"
+    shell:
+        """
+        python compare-paired-sequences.py --simulation-csv {input.simulation_info} \
+               --fasta-dir {params.fasta_dir} --output-csv {output}
+        """
 
-rule write_containment_prodigal_filelist:
-    input: expand(os.path.join(out_dir, "compare", "{siminfo}.prodigal.{aks}.containment.csv"), aks= alpha_ksize_scaled, siminfo=simulation_info)
-    output: out_dir + "compare/prodigal-containment.filelist.txt"
-    run:
-        with open(str(output), "w") as outF:
-            for inF in input:
-                outF.write(str(inF) + "\n")
+
+rule compare_prodigal:
+    input:
+        simulation_info = os.path.join(out_dir,"data/{siminfo}.tsv.xz"),
+        fasta_filelist = os.path.join(out_dir, "compare", "{siminfo}.prodigal.fastalist.txt")
+    output:
+        os.path.join(out_dir, "compare", "{siminfo}.prodigal.compare.csv.gz"),
+    params:
+        fasta_dir = os.path.join(out_dir,"data/prodigal")
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *50000,
+        runtime=6000,
+    log: os.path.join(logs_dir, "compare", "{siminfo}.prodigal.log")
+    benchmark: os.path.join(logs_dir, "compare", "{siminfo}.prodigal.benchmark")
+    conda: "envs/sourmash-dev.yml"
+    shell:
+        """
+        python compare-paired-sequences.py --simulation-csv {input.simulation_info} \
+               --fasta-dir {params.fasta_dir} --output-csv {output}
+        """
 
 # aggregate info from multiple tsv files --> single csv file
-rule aggregate_simulation_info:
-    input: os.path.join(out_dir, "data/simulation-info.filelist.txt")
-    output: os.path.join(out_dir, "data/simulation-info.csv.gz")
-    conda: "envs/pdist-env.yml"
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *10000,
-        runtime=600,
-    shell:
-        """
-        python aggregate-simulation-info.py {input} {output}
-        """
+#rule aggregate_:
+#    input: os.path.join(out_dir, "data/simulation-info.filelist.txt")
+#    output: os.path.join(out_dir, "data/simulation-info.csv.gz")
+#    conda: "envs/pdist-env.yml"
+#    threads: 1
+#    resources:
+#        mem_mb=lambda wildcards, attempt: attempt *10000,
+#        runtime=600,
+#    shell:
+#        """
+#        python aggregate-simulation-info.py {input} {output}
+#        """
 
-# aggregate simulation info + sourmash compare info
-rule aggregate_dnainput_compare:
-    input:
-        jaccard = os.path.join(out_dir, "compare/dnainput-jaccard.filelist.txt"),
-        containment = os.path.join(out_dir,"compare/dnainput-containment.filelist.txt"),
-        simulation_info =  os.path.join(out_dir, "data/simulation-info.csv.gz"),
-    output: os.path.join(out_dir, "results/estimated-distances.dnainput.csv.gz ")
-    conda: "envs/pdist-env.yml"
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *10000,
-        runtime=6000,
-    shell:
-        """
-        python aggregate-compare-info.py --jaccard-files {input.jaccard} --containment-files {input.containment} --siminfo {input.simulation_info} --output {output}
-        """
-
-rule aggregate_prodigal_compare:
-    input:
-        jaccard = out_dir + "compare/prodigal-jaccard.filelist.txt",
-        containment = out_dir + "compare/prodigal-containment.filelist.txt",
-        simulation_info =  out_dir + "data/simulation-info.tsv",
-    output: out_dir + "results/estimated-distances.prodigal.csv"
-    conda: "envs/pdist-env.yml"
-    shell:
-        """
-        python aggregate-compare-info.py --jaccard-files {input.jaccard} --containment-files {input.containment} --siminfo {input.simulation_info} --output {output}
-        """

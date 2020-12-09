@@ -61,6 +61,7 @@ def convert_to_pdist(corr, ksize):
 
 
 def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled_vals):
+    print("Working on seed: " + str(row["seed"]))
     seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".fasta")
     seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".fasta")
     translate = False
@@ -105,7 +106,7 @@ def main(args):
     alphabets_to_compare = ["nucleotide", "protein", "dayhoff", "hp"]
     ksize_info = {"nucleotide": [21,31,51], "protein": [7,8,9,10,11,12], "dayhoff": [15,16,17,18,19], "hp": [33,35,37,39,42]}
     scaled_info = {"nucleotide": [1000], "protein": [100], "dayhoff": [100], "hp": [100]}
-    info_csv.apply(compare_sequences, axis=1, args=(str(args.fasta_dir), str(args.fasta_alphabet), alphabets_to_compare, ksize_info, scaled_info))
+    info_csv = info_csv.apply(compare_sequences, axis=1, args=(str(args.fasta_dir), str(args.fasta_alphabet), alphabets_to_compare, ksize_info, scaled_info))
     #write to csv, don't write index
     info_csv.to_csv(args.output_csv, index=False)
 
