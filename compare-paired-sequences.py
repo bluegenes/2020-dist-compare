@@ -62,8 +62,12 @@ def convert_to_pdist(corr, ksize):
 
 def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled_vals):
     print("Working on seed: " + str(row["seed"]))
-    seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".fasta")
-    seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".fasta")
+    if input_alpha == "nucleotide":
+        seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".fasta")
+        seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".fasta")
+    else:
+        seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".prodigal.fasta")
+        seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".prodigal.fasta")
     translate = False
     for alpha in alphabets:
         if input_alpha == "nucleotide" and alpha != "nucleotide":

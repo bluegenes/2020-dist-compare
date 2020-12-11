@@ -23,9 +23,9 @@ def range_with_floats_list(start, stop, step):
  
 # make variables that correspond to the simulated distances
 sim_distances = range_with_floats_list(0.05, 1.00, 0.05)
-f1_seqnums=[*range(1, 201)]
-f2_seqnums=[*range(201, 401)]
-f3_seqnums=[*range(401, 601)]
+f1_seednums=[*range(1, 201)]
+f2_seednums=[*range(201, 401)]
+f3_seednums=[*range(401, 601)]
 
 # frequencies
 #f1: equal frequencies, i.e. freq(A) = freq(C) = freq(G) = freq(T) = 0.25,
@@ -39,27 +39,15 @@ evolmodels = ["nogam", "gamma"]
 
 simulation_info = expand("data-d{d}-{freq}-{model}", d = sim_distances, freq =nt_frequencies, model=evolmodels)
 
-f1_info = expand("data-d{d}-f1-{model}-seed{seed}-seq{seq}", d = sim_distances, model=evolmodels, seed = f1_seqnums, seq=[1,2])
-f2_info = expand("data-d{d}-f2-{model}-seed{seed}-seq{seq}", d = sim_distances, model=evolmodels, seed = f2_seqnums, seq=[1,2])
-f3_info = expand("data-d{d}-f3-{model}-seed{seed}-seq{seq}", d = sim_distances, model=evolmodels, seed = f3_seqnums, seq=[1,2])
-simulated_readinfo = f1_info + f2_info + f3_info
+f1_siminfo = expand("data-d{d}-f1-{model}", d = sim_distances, model=evolmodels)
+f2_siminfo = expand("data-d{d}-f2-{model}", d = sim_distances, model=evolmodels)
+f3_siminfo = expand("data-d{d}-f3-{model}", d = sim_distances, model=evolmodels)
 
-alphabet_info = config["alphabets"]
-alpha_ksizes, alpha_ksize_scaled= [], []
-
-wildcard_constraints:
-    alphabet="\w+",
-    ksize="\d+"
-
-
-for alphabet, info in alphabet_info.items():
-    ak = expand("{alpha}-k{ksize}", alpha=alphabet, ksize=info["ksizes"])
-    aks = expand("{alpha}-k{ksize}-scaled{scaled}", alpha=alphabet, ksize=info["ksizes"], scaled = info["scaled"])
-    alpha_ksizes.extend(ak)
-    alpha_ksize_scaled.extend(aks)
-
-
-
+seedinfo =  { key: f1_seednums for key in f1_siminfo}
+f2_seedinfo =  { key: f2_seednums for key in f2_siminfo}
+f3_seedinfo =  { key: f3_seednums for key in f3_siminfo}
+seedinfo.update(f2_seedinfo)
+seedinfo.update(f3_seedinfo)
 
 rule all: 
     input: 
@@ -80,7 +68,7 @@ rule download_tsv:
 
 rule simreads_to_fasta_f1:
     input: ancient(os.path.join(out_dir,"data/{siminfo}.tsv.xz"))
-    output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f1_seqnums, seq=[1,2])
+    output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f1_seednums, seq=[1,2])
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
     conda: "envs/pdist-env.yml"
@@ -95,7 +83,7 @@ rule simreads_to_fasta_f1:
 
 rule simreads_to_fasta_f2:
     input: ancient(os.path.join(out_dir,"data/{siminfo}.tsv.xz"))
-    output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f2_seqnums, seq=[1,2])
+    output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f2_seednums, seq=[1,2])
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
     conda: "envs/pdist-env.yml"
@@ -109,7 +97,7 @@ rule simreads_to_fasta_f2:
         """
 rule simreads_to_fasta_f3:
     input: ancient(os.path.join(out_dir,"data/{siminfo}.tsv.xz"))
-    output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f3_seqnums, seq=[1,2])
+    output: expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f3_seednums, seq=[1,2])
     params:
         outdir = os.path.join(out_dir, "data", "simreads")
     conda: "envs/pdist-env.yml"
@@ -139,26 +127,20 @@ rule prodigal_translate:
 
 rule write_jaccard_dnainput_filelist:
     input: 
-        f1 = ancient(expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f1_seqnums, seq=[1,2])),
-        f2 = ancient(expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f2_seqnums, seq=[1,2])),
-        f3 = ancient(expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = f3_seqnums, seq=[1,2])),
+        lambda w: ancient(expand(os.path.join(out_dir, "data/simreads", "{{siminfo}}-seed{seed}-seq{seq}.fasta"), seed = seedinfo[w.siminfo], seq=[1,2])),
     output: os.path.join(out_dir, "compare", "{siminfo}.dnainput.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
-            all_inputs = input.f1 + input.f2 + input.f3
-            for inF in all_inputs:
+            for inF in input:
                 outF.write(str(inF) + "\n")
 
 rule write_jaccard_prodigal_filelist:
     input:
-        f1 = ancient(expand(os.path.join(out_dir, "data/prodigal", "{{siminfo}}-seed{seed}-seq{seq}.proteins.fasta"), seed = f1_seqnums, seq=[1,2])),
-        f2 = ancient(expand(os.path.join(out_dir, "data/prodigal", "{{siminfo}}-seed{seed}-seq{seq}.proteins.fasta"), seed = f2_seqnums, seq=[1,2])),
-        f3 = ancient(expand(os.path.join(out_dir, "data/prodigal", "{{siminfo}}-seed{seed}-seq{seq}.proteins.fasta"), seed = f3_seqnums, seq=[1,2])),
+        lambda w: ancient(expand(os.path.join(out_dir, "data/prodigal", "{{siminfo}}-seed{seed}-seq{seq}.proteins.fasta"), seed = seedinfo[w.siminfo], seq=[1,2])),
     output: os.path.join(out_dir, "compare", "{siminfo}.prodigal.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
-            all_inputs = input.f1 + input.f2 + input.f3
-            for inF in all_inputs:
+            for inF in input:
                 outF.write(str(inF) + "\n")
 
 rule compare_dnainput:
@@ -201,7 +183,7 @@ rule compare_prodigal:
     shell:
         """
         python compare-paired-sequences.py --simulation-csv {input.simulation_info} \
-               --fasta-dir {params.fasta_dir} --output-csv {output}
+               --fasta-dir {params.fasta_dir} --fasta-alphabet "protein" --output-csv {output}
         """
 
 # aggregate info from multiple tsv files --> single csv file
