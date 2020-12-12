@@ -66,8 +66,8 @@ def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled_val
         seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".fasta")
         seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".fasta")
     else:
-        seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".prodigal.fasta")
-        seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".prodigal.fasta")
+        seq1_fastaF = os.path.join(fasta_dir, row["name"] + "-seq1" + ".proteins.fasta")
+        seq2_fastaF = os.path.join(fasta_dir, row["name"] + "-seq2" + ".proteins.fasta")
     translate = False
     for alpha in alphabets:
         if input_alpha == "nucleotide" and alpha != "nucleotide":
