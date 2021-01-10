@@ -75,9 +75,10 @@ def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled_val
         for ksize in ksizes[alpha]:
             for scaled in scaled_vals[alpha]:
                 jaccard_name = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.jaccard"
-                jaccard_pdist = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.jaccard-pdist"
+                #jaccard_pdist = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.jaccard-pdist"
                 containment_name = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.containment"
-                containment_pdist = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.containment-pdist"
+                #containment_pdist = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.containment-pdist"
+                hashnums_name = f"{alpha}-k{str(ksize)}-scaled{str(scaled)}.num_hashes"
                 # build signatures
                 seq1_sig = build_sig_from_file(seq1_fastaF, alpha, ksize, scaled, ignore_abundance=True, translate=translate)
                 seq2_sig = build_sig_from_file(seq2_fastaF, alpha, ksize, scaled, ignore_abundance=True, translate=translate)
@@ -86,13 +87,18 @@ def compare_sequences(row, fasta_dir, input_alpha, alphabets, ksizes, scaled_val
                 contain1 = seq1_sig.contained_by(seq2_sig)
                 contain2 = seq2_sig.contained_by(seq1_sig)
                 max_contain = max(contain1,contain2)
+                #sig1Kmers = len(seq1_sig.minhash.hashes) * scaled
+                #sig2Kmers = len(seq2_sig.minhash.hashes) * scaled
+                #minNumKmers = min(sig1Kmers, sig2Kmers)
                 # convert to pdists
-                j_pdist = convert_to_pdist(jaccard, ksize)
-                c_pdist = convert_to_pdist(max_contain, ksize)
+                #j_pdist = convert_to_pdist(jaccard, ksize)
+                #c_pdist = convert_to_pdist(max_contain, ksize)
                 row[jaccard_name] = jaccard
-                row[jaccard_pdist] = j_pdist
+                #row[jaccard_pdist] = j_pdist
                 row[containment_name] = max_contain
-                row[containment_pdist] = c_pdist
+                #row[containment_pdist] = c_pdist
+                # tuple of hashnum info
+                row[hashnums_name] = (len(seq1_sig.minhash.hashes), len(seq2_sig.minhash.hashes), seq1_sig.minhash.count_common(seq2_sig.minhash))
     return row
 
 
@@ -107,8 +113,11 @@ def process_infofile(inF):
 def main(args):
     # get basename for these sequences
     info_csv = process_infofile(args.simulation_csv)
-    alphabets_to_compare = ["nucleotide", "protein", "dayhoff", "hp"]
-    ksize_info = {"nucleotide": [21,31,51], "protein": [7,8,9,10,11,12], "dayhoff": [15,16,17,18,19], "hp": [33,35,37,39,42]}
+    if args.fasta_alphabet == "nucleotide":
+        alphabets_to_compare = ["nucleotide", "protein", "dayhoff", "hp"]
+    else:
+        alphabets_to_compare = ["protein", "dayhoff", "hp"]
+    ksize_info = {"nucleotide": [21,26,31,51], "protein": [7,8,9,10,11,12], "dayhoff": [15,16,17,18,19], "hp": [33,35,37,39,42]}
     scaled_info = {"nucleotide": [1000], "protein": [100], "dayhoff": [100], "hp": [100]}
     info_csv = info_csv.apply(compare_sequences, axis=1, args=(str(args.fasta_dir), str(args.fasta_alphabet), alphabets_to_compare, ksize_info, scaled_info))
     #write to csv, don't write index

@@ -1,0 +1,35 @@
+# location for all generated files
+datasets:
+  - D1
+#  - D2
+#  - D3
+#  - D4
+#  - D5
+
+output_dir: output.ani-compare
+
+alphabet_info:
+  nucleotide:
+    ksizes: [21,31,51]
+    scaled: [1000]
+    alpha_cmd: "--dna"
+    moltype: "dna"
+    ksize_multiplier: 1
+  protein:
+    ksizes: [7,8,9,10,11,12]
+    scaled: [100]
+    alpha_cmd: "--protein"
+    moltype: "protein"
+    ksize_multiplier: 3
+  dayhoff:
+    ksizes: [15,16,17,18,19]
+    scaled: [100]
+    alpha_cmd: "--dayhoff"
+    moltype: "dayhoff"
+    ksize_multiplier: 3
+  hp:
+    ksizes: [33,35,37,39,42]
+    scaled: [100]
+    alpha_cmd: "--hp"
+    moltype: "hp"
+    ksize_multiplier: 3
