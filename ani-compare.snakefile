@@ -51,12 +51,10 @@ def build_sketch_params(output_type):
     sketch_cmd = ""
     if output_type == "nucleotide":
         ksizes = config["alphabet_info"]["nucleotide"]["ksizes"]
-        # just build signatures at the highest resolution (lowest scaled value). Index can downsample for us.
         scaled = min(config["alphabet_info"]["nucleotide"]["scaled"])
-        # maybe don't track abundance?
-        sketch_cmd = "k=" + ",k=".join(map(str, ksizes)) + f",scaled={str(scaled)}" + ",abund"
+        sketch_cmd = " -p " + "k=" + ",k=".join(map(str, ksizes)) + f",scaled={str(scaled)}" + ",abund"
         return sketch_cmd
-    elif output_type == "protein":
+    else:
         for alpha in ["protein", "dayhoff", "hp"]:
             if alpha in config["alphabet_info"].keys():
                 ## if ksizes aren't given, sketch protein, dayhoff, hp at the ksizes from default config
@@ -71,7 +69,10 @@ rule sourmash_sketch_dnainput:
     output:
         os.path.join(out_dir, "{dataset}", "signatures", "{name}.dnainput.sig"),
     params:
-        sketch_params = build_sketch_params("nucleotide"),
+        nucl_sketch_params = build_sketch_params("nucleotide"),
+        translate_sketch_params = build_sketch_params("protein"),
+        nucl_sketch=os.path.join(out_dir, "{dataset}/signatures", "{name}.nucleotide.sig"),
+        prot_sketch=os.path.join(out_dir, "{dataset}/signatures", "{name}.translate.sig"),
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *2000,
@@ -81,7 +82,11 @@ rule sourmash_sketch_dnainput:
     conda: "envs/sourmash-dev.yml"
     shell:
         """
-        sourmash sketch dna -p {params.sketch_params} --name {wildcards.name:q} -o {output} {input}  2> {log}
+        sourmash sketch dna {params.nucl_sketch_params} --name {wildcards.name:q} -o {params.nucl_sketch} {input}  2> {log}
+        sourmash sketch translate {params.translate_sketch_params} --name {wildcards.name:q} -o {params.prot_sketch} {input}  2> {log}
+        sourmash sig cat {params.nucl_sketch} {params.prot_sketch} -o {output} 2>> {log}
+        rm {params.nucl_sketch}
+        rm {params.prot_sketch}
         """
 
 rule sourmash_sketch_prodigal_input:
