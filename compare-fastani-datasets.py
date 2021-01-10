@@ -29,7 +29,8 @@ def main(args):
     ksize_info = {"nucleotide": [21,31,51], "protein": [7,8,9,10,11,12], "dayhoff": [15,16,17,18,19], "hp": [33,35,37,39,42]}
     scaled_info = {"nucleotide": [1000], "protein": [100], "dayhoff": [100], "hp": [100]}
 
-    compareInfo=defaultdict(list)
+    #compareInfo=defaultdict(list)
+    compareInfo=[]
     # get sigfile names and anchor sigfile
     sigfiles = [x.strip() for x in open(args.sigfiles, "r")]
     anchor_sigF = args.anchor_sig
@@ -45,25 +46,27 @@ def main(args):
         else:
             moltype = alpha
         for ksize in ksize_info[alpha]:
+            select_ksize = ksize
+            if moltype != "dna":
+                select_ksize = ksize*3
             for scaled in scaled_vals[alpha]:
-                anchor_sig = sourmash.signature.load_signatures(anchor_sigfile, ksize=ksize, select_moltype=moltype)
+                anchor_sig = list(sourmash.signature.load_signatures(anchor_sigfile, ksize=select_ksize, select_moltype=moltype))[0]
                 anchor_hashes = len(anchor_sig.minhash.hashes)
                 for sigF in sigfiles:
                     full_sigF = os.path.join(args.sigdir, sigF)
-                    query_sig = sourmash.signature.load_signatures(full_sigF, ksize=ksize, select_moltype=moltype)
+                    query_sig = list(sourmash.signature.load_signatures(full_sigF, ksize=select_ksize, select_moltype=moltype))[0]
                     query_hashes = len(query_sig.minhash.hashes)
                     intersect_hashes = anchor_sig.minhash.count_common(query_sig.minhash)
                     jaccard = anchor_sig.jaccard(query_sig)
                     contain1 = anchor_sig.contained_by(query_sig)
                     contain2 = query_sig.contained_by(anchor_sig)
                     max_contain = max(contain1,contain2)
-                    compareInfo[var_info].append(CompareResult(sigF, moltype, ksize, scaled, jaccard, max_contain, anchor_hashes, query_hashes, intersect_hashes))
+                    compareInfo.append(CompareResult(sigF, alpha, ksize, scaled, jaccard, max_contain, anchor_hashes, query_hashes, intersect_hashes))
 
     import pdb; pdb.set_trace()
-    # write csv:
-    # sigF, comparison tuple info
-    #write to csv, don't write index
-    #info_csv.to_csv(args.output_csv, index=False)
+    # convert to pandas DF and write csv:
+    infoDF = pd.DataFrame.from_records(compareInfo)
+    infoDF.to_csv(args.output_csv) # index=False
 
 
 def cmdline(sys_args):
