@@ -8,6 +8,13 @@ datasets:
 
 output_dir: output.ani-compare
 
+anchor_info:
+  D1: "Escherichia_coli_str__K_12_substr__MG1655"
+  D2: "fastani-datasets/D2/Bacillus_anthracis_52_G_NZ_CM002395"
+  D3: "fastani-datasets/D3/Escherichia_coli_0_1288_GCA_000303255" 
+  D4: "fastani-datasets/D4/2000031001.LargeContigs.fna"
+  #D5: ""
+
 alphabet_info:
   nucleotide:
     ksizes: [21,31,51]

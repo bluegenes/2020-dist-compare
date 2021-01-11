@@ -18,6 +18,7 @@ logs_dir = out_dir + "/logs"
 # get sample names; set anchors
 
 datasets = config["datasets"]
+anchor_info = config["anchor_info"]
 dataset_samples = {}
 for ds in datasets:
     ds_tsv = pd.read_csv(f"fastani-datasets/{ds}.ids.txt.gz", sep= "\t") #, names = ["name", "accession", "link"])
@@ -135,7 +136,7 @@ rule compare_dnainput:
         os.path.join(out_dir, "compare", "{dataset}.dnainput.compare.csv.gz"),
     params:
         #fasta_dir = lambda w: w.dataset,
-        anchor_sig = lambda w: anchor_info[w.dataset] + ".dnainput.sig"
+        anchor_sig = lambda w: os.path.join(out_dir, w.dataset, "signatures", anchor_info[w.dataset] + ".dnainput.sig")
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *50000,
@@ -145,7 +146,7 @@ rule compare_dnainput:
     conda: "envs/sourmash-dev.yml"
     shell:
         """
-        python compare-sequences.py --siglist {input.siglist} \
+        python compare-fastani-datasets.py --siglist {input.siglist} \
                --anchor-sig {params.anchor_sig} \
                --output-csv {output}
         """
@@ -159,7 +160,7 @@ rule compare_prodigal:
         os.path.join(out_dir, "compare", "{dataset}.prodigal.compare.csv.gz"),
     params:
         #sig_dir = os.path.join(out_dir,"data/prodigal"),
-        anchor_sig = lambda w: anchor_info[w.dataset] + ".prodigal.sig"
+        anchor_sig = lambda w: os.path.join(out_dir, w.dataset, "prodigal/signatures", anchor_info[w.dataset] + ".prodigal.sig")
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *50000,
@@ -169,7 +170,7 @@ rule compare_prodigal:
     conda: "envs/sourmash-dev.yml"
     shell:
         """
-        python compare-sequences.py --siglist {input.siglist} \
-               --fasta-alphabet "protein" --anchor-sig {params.anchor_sig} \
+        python compare-fastani-datasets.py --siglist {input.siglist} \
+               --input-alphabet "protein" --anchor-sig {params.anchor_sig} \
                --output-csv {output}
         """
