@@ -23,7 +23,7 @@ CompareResult = namedtuple('CompareResult',
 def main(args):
     # get basename for these sequences
     if args.input_alphabet == "nucleotide":
-        alphabets_to_compare = ["nucleotide", "protein", "dayhoff", "hp"]
+        alphabets_to_compare = ["nucleotide"] #, "protein", "dayhoff", "hp"]
     else:
         alphabets_to_compare = ["protein", "dayhoff", "hp"]
     ksize_info = {"nucleotide": [21,31,51], "protein": [7,8,9,10,11,12], "dayhoff": [15,16,17,18,19], "hp": [33,35,37,39,42]}

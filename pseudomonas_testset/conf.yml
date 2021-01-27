@@ -1,0 +1,24 @@
+# location for all generated files
+output_dir: output.psuedomonas_compare
+
+alphabet_info:
+  nucleotide:
+    ksizes: [21,31,51]
+    scaled: [1000]
+    alpha_cmd: "--dna"
+    moltype: "dna"
+  protein:
+    ksizes: [7,8,9,10,11,12]
+    scaled: [100]
+    alpha_cmd: "--protein"
+    moltype: "protein"
+  dayhoff:
+    ksizes: [15,16,17,18,19]
+    scaled: [100]
+    alpha_cmd: "--dayhoff"
+    moltype: "dayhoff"
+  hp:
+    ksizes: [33,35,37,39,42]
+    scaled: [100]
+    alpha_cmd: "--hp"
+    moltype: "hp"

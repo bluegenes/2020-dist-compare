@@ -31,7 +31,9 @@ for ds in datasets:
 
 rule all: 
     input: 
-        expand(os.path.join(out_dir, "compare", "{dataset}.{fasta_type}.compare.csv.gz"), dataset=datasets, fasta_type = ["dnainput", "prodigal"])
+        expand(os.path.join(out_dir, "compare", "{dataset}.{fasta_type}.compare.csv.gz"), dataset=datasets, fasta_type = ["dnainput", "prodigal"]),
+        expand(os.path.join(out_dir, "fastani-compare", "{dataset}.fastani.tsv"), dataset=datasets),
+        expand(os.path.join(out_dir, "{dataset}.compareM", "aai/aai_summary.tsv"), dataset=datasets),
 
 rule prodigal_translate:
     input: 
@@ -109,9 +111,10 @@ rule sourmash_sketch_prodigal_input:
         sourmash sketch protein {params.sketch_params} --name {wildcards.name:q} -o {output} {input} 2> {log}
         """
 
+localrules: write_dnainput_siglist, write_dnainput_fastalist, write_prodigal_siglist, write_prodigal_fastalist
+
 rule write_dnainput_siglist:
     input:
-        #lambda w: ancient(expand("{{dataset}}/{name}.LargeContigs.fna"), name = dataset_samples[w.dataset]),
         lambda w: expand(os.path.join(out_dir, "{{dataset}}", "signatures", "{name}.dnainput.sig"), name= dataset_samples[w.dataset]), 
     output: os.path.join(out_dir, "compare", "{dataset}.dnainput.siglist.txt")
     run:
@@ -119,15 +122,35 @@ rule write_dnainput_siglist:
             for inF in input:
                 outF.write(str(inF) + "\n")
 
+rule write_dnainput_fastalist:
+    input:
+        lambda w: ancient(expand("fastani-datasets/{{dataset}}/{name}.LargeContigs.fna", name = dataset_samples[w.dataset])),
+    output: os.path.join(out_dir, "compare", "{dataset}.dnainput.fastalist.txt")
+    run:
+        with open(str(output), "w") as outF:
+            for inF in input:
+                outF.write(str(inF) + "\n")
+
+
 rule write_prodigal_siglist:
     input:
-        #lambda w: ancient(expand(os.path.join(out_dir, "data/{{dataset}}/prodigal", "{name}.proteins.fasta"), name = dataset_samples[w.dataset])),
         lambda w: expand(os.path.join(out_dir, "{{dataset}}", "prodigal", "signatures", "{name}.prodigal.sig"), name = dataset_samples[w.dataset]) 
     output: os.path.join(out_dir, "compare", "{dataset}.prodigal.siglist.txt")
     run:
         with open(str(output), "w") as outF:
             for inF in input:
                 outF.write(str(inF) + "\n")
+
+
+rule write_prodigal_fastalist:
+    input:
+        lambda w: ancient(expand(os.path.join(out_dir, "{{dataset}}/prodigal", "{name}.proteins.fasta"), name = dataset_samples[w.dataset])),
+    output: os.path.join(out_dir, "compare", "{dataset}.prodigal.fastalist.txt")
+    run:
+        with open(str(output), "w") as outF:
+            for inF in input:
+                outF.write(str(inF) + "\n")
+
 
 rule compare_dnainput:
     input: 
@@ -174,3 +197,43 @@ rule compare_prodigal:
                --input-alphabet "protein" --anchor-sig {params.anchor_sig} \
                --output-csv {output}
         """
+
+
+rule compare_via_fastANI:
+    input:
+        fastalist=os.path.join(out_dir, "compare", "{dataset}.dnainput.fastalist.txt"),
+        anchor=lambda w: os.path.join("fastani-datasets", "{dataset}", anchor_info[w.dataset] + ".LargeContigs.fna")
+    output:
+        os.path.join(out_dir, "fastani-compare", "{dataset}.fastani.tsv"),
+    threads: 10
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *200000,
+        runtime=1600,
+    log: os.path.join(logs_dir, "fastani", "{dataset}.fastani.log")
+    benchmark: os.path.join(logs_dir, "fastani", "{dataset}.fastani.benchmark")
+    conda: "envs/fastani-env.yml"
+    shell:
+        """
+        fastANI -q {input.anchor} --rl {input.fastalist} -t {threads} -o {output} >> {log} 2>&1
+        """
+
+rule AAI_via_compareM:
+    input:
+        os.path.join(out_dir, "compare", "{dataset}.prodigal.fastalist.txt")
+    output:
+        os.path.join(out_dir, "{dataset}.compareM", "aai/aai_summary.tsv"),
+    threads: 20
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *100000,
+        runtime=2000,
+    params:
+        outdir = os.path.join(out_dir, "{dataset}.compareM")
+    log: os.path.join(logs_dir, "compareM", "{dataset}.compareM.log")
+    benchmark: os.path.join(logs_dir, "compareM", "{dataset}.compareM.benchmark")
+    shadow: "shallow"
+    conda: "envs/compareM-env.yml"
+    shell:
+        """
+        comparem aai_wf --cpus {threads} --file_ext ".proteins.fasta" --proteins --sensitive {input} {params.outdir} >> {log} 2>&1
+        """
+    
