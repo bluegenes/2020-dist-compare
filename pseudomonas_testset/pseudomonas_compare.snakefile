@@ -40,8 +40,8 @@ rule all:
         expand(os.path.join(out_dir, "data/protein/{accession}_protein.faa.gz"), accession = pseudomonas_accessions),
         expand(os.path.join(compare_dir, "pseudomonas.genomic.{alphak}.compare.csv"), alphak=genomic_alphaksizes),
         expand(os.path.join(compare_dir, "pseudomonas.protein.{alphak}.compare.csv"), alphak=protein_alphaksizes),
-        #os.path.join(compare_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
-        #os.path.join(compare_dir, "compareM", "aai/aai_summary.tsv"),
+        os.path.join(compare_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
+        os.path.join(compare_dir, "compareM", "aai/aai_summary.tsv"),
 
 rule download_ncbi_datasets_tool:
     output: "scripts/ncbi-datasets"
@@ -137,9 +137,9 @@ rule sourmash_sketch_protein_input:
         sourmash sketch protein {params.sketch_params} --name {wildcards.accession:q} -o {output} {input} 2> {log}
         """
 
-localrules: write_dnainput_siglist, write_dnainput_fastalist, write_protein_siglist, write_protein_fastalist
+localrules: write_genomic_siglist, write_genomic_fastalist, write_protein_siglist, write_protein_fastalist
 
-rule write_dnainput_siglist:
+rule write_genomic_siglist:
     input:
         lambda w: expand(os.path.join(out_dir, "genomic", "signatures", "{accession}.genomic.sig"), accession = pseudomonas_accessions), 
     output: os.path.join(compare_dir, "pseudomonas.genomic.siglist.txt")
@@ -148,10 +148,10 @@ rule write_dnainput_siglist:
             for inF in input:
                 outF.write(str(inF) + "\n")
 
-rule write_dnainput_fastalist:
+rule write_genomic_fastalist:
     input:
         lambda w: ancient(expand(os.path.join(out_dir, "data/genomic/{accession}_genomic.fna.gz"), accession= pseudomonas_accessions)) 
-    output: os.path.join(compare_dir, "psuedomonas.genomic.fastalist.txt")
+    output: os.path.join(compare_dir, "pseudomonas.genomic.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
             for inF in input:
@@ -171,7 +171,7 @@ rule write_protein_siglist:
 rule write_protein_fastalist:
     input:
         lambda w: ancient(expand(os.path.join(out_dir, "data/protein/{accession}_protein.faa.gz"), accession= pseudomonas_accessions))
-    output: os.path.join(compare_dir, "psuedomonas.protein.fastalist.txt")
+    output: os.path.join(compare_dir, "pseudomonas.protein.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
             for inF in input:
@@ -241,7 +241,7 @@ rule compare_via_fastANI:
 
 rule AAI_via_compareM:
     input:
-        os.path.join(compare_dir, "compare", "pseudomonas.protein.fastalist.txt")
+        os.path.join(compare_dir, "pseudomonas.protein.fastalist.txt")
     output:
         os.path.join(compare_dir, "compareM", "aai/aai_summary.tsv"),
     threads: 20
