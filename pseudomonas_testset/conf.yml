@@ -1,6 +1,11 @@
 # location for all generated files
 output_dir: output.psuedomonas_compare
 
+#accession_csv: pseudomonas_genomes.info.csv
+accession_csv: pseudomonas_genomes.info.CompleteGenome.csv
+
+experiment: "CompleteGenome"
+
 alphabet_info:
   nucleotide:
     ksizes: [21,31,51]

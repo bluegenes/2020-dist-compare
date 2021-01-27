@@ -2,6 +2,11 @@
 Author: N Tessa Pierce, UC Davis Lab for Data Intensive Biology
 Run: snakemake -s  pseudomonas-containment.snakefile -k
 """
+# download all pseudomonas genomes, do containment analysis at DNA, protein levels. 
+#    - calculate mean, median sub-species, species-level, genus-level containment
+# find genomes matching higher taxonomic ranks, do containment analysis
+#    - calculate mean, median family, class, order level containment
+## this is similar, but smaller than the full-gtdb version
 
 import os
 import re
@@ -10,14 +15,13 @@ import pandas as pd
 configfile: "conf.yml"
 out_dir = config["output_dir"]
 logs_dir = os.path.join(out_dir, "logs")
+expt = config.get("experiment", "")
+if expt:
+    expt = "_" + expt
+compare_dir = os.path.join(out_dir, "compare" + expt)
 
-# download all pseudomonas genomes, do containment analysis at DNA, protein levels. 
-#    - calculate mean, median sub-species, species-level, genus-level containment
-# find genomes matching higher taxonomic ranks, do containment analysis
-#    - calculate mean, median family, class, order level containment
-## this is similar, but smaller than the full-gtdb version
-
-pseudomonas_info = pd.read_csv("pseudomonas_genomes.info.csv")
+pseudomonas_csv = config["accession_csv"]
+pseudomonas_info = pd.read_csv(pseudomonas_csv)
 pseudomonas_accessions = pseudomonas_info["accession"].tolist()
 pseudomonas_info.set_index("accession", inplace=True)
 
@@ -34,10 +38,10 @@ rule all:
     input: 
         expand(os.path.join(out_dir, "data/genomic/{accession}_genomic.fna.gz"), accession = pseudomonas_accessions),
         expand(os.path.join(out_dir, "data/protein/{accession}_protein.faa.gz"), accession = pseudomonas_accessions),
-        expand(os.path.join(out_dir, "compare", "pseudomonas.genomic.{alphak}.compare.csv"), alphak=genomic_alphaksizes),
-        expand(os.path.join(out_dir, "compare", "pseudomonas.protein.{alphak}.compare.csv"), alphak=protein_alphaksizes),
-        #os.path.join(out_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
-        #os.path.join(out_dir, "compareM", "aai/aai_summary.tsv"),
+        expand(os.path.join(compare_dir, "pseudomonas.genomic.{alphak}.compare.csv"), alphak=genomic_alphaksizes),
+        expand(os.path.join(compare_dir, "pseudomonas.protein.{alphak}.compare.csv"), alphak=protein_alphaksizes),
+        #os.path.join(compare_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
+        #os.path.join(compare_dir, "compareM", "aai/aai_summary.tsv"),
 
 rule download_ncbi_datasets_tool:
     output: "scripts/ncbi-datasets"
@@ -138,7 +142,7 @@ localrules: write_dnainput_siglist, write_dnainput_fastalist, write_protein_sigl
 rule write_dnainput_siglist:
     input:
         lambda w: expand(os.path.join(out_dir, "genomic", "signatures", "{accession}.genomic.sig"), accession = pseudomonas_accessions), 
-    output: os.path.join(out_dir, "compare", "pseudomonas.genomic.siglist.txt")
+    output: os.path.join(compare_dir, "pseudomonas.genomic.siglist.txt")
     run:
         with open(str(output), "w") as outF:
             for inF in input:
@@ -147,7 +151,7 @@ rule write_dnainput_siglist:
 rule write_dnainput_fastalist:
     input:
         lambda w: ancient(expand(os.path.join(out_dir, "data/genomic/{accession}_genomic.fna.gz"), accession= pseudomonas_accessions)) 
-    output: os.path.join(out_dir, "compare", "psuedomonas.genomic.fastalist.txt")
+    output: os.path.join(compare_dir, "psuedomonas.genomic.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
             for inF in input:
@@ -156,8 +160,8 @@ rule write_dnainput_fastalist:
 
 rule write_protein_siglist:
     input:
-        lambda w: expand(os.path.join(out_dir, "protein", "signatures", "{accession}.protein.sig"), accession = pseudomonas_accessions),#prot_accs), 
-    output: os.path.join(out_dir, "compare", "{dataset}.protein.siglist.txt")
+        lambda w: expand(os.path.join(out_dir, "protein", "signatures", "{accession}.protein.sig"), accession = pseudomonas_accessions),
+    output: os.path.join(compare_dir, "{dataset}.protein.siglist.txt")
     run:
         with open(str(output), "w") as outF:
             for inF in input:
@@ -166,8 +170,8 @@ rule write_protein_siglist:
 
 rule write_protein_fastalist:
     input:
-        lambda w: ancient(expand(os.path.join(out_dir, "data/protein/{accession}_protein.faa.gz"), accession= pseudomonas_accessions)) #prot_accs))
-    output: os.path.join(out_dir, "compare", "psuedomonas.protein.fastalist.txt")
+        lambda w: ancient(expand(os.path.join(out_dir, "data/protein/{accession}_protein.faa.gz"), accession= pseudomonas_accessions))
+    output: os.path.join(compare_dir, "psuedomonas.protein.fastalist.txt")
     run:
         with open(str(output), "w") as outF:
             for inF in input:
@@ -176,18 +180,18 @@ rule write_protein_fastalist:
 
 rule compare_genomic:
     input: 
-        siglist = os.path.join(out_dir, "compare", "pseudomonas.genomic.siglist.txt")
+        siglist = os.path.join(compare_dir, "pseudomonas.genomic.siglist.txt")
     output: 
-        np=os.path.join(out_dir, "compare", "pseudomonas.genomic.{alphabet}-k{ksize}.compare.np"),
-        csv=os.path.join(out_dir, "compare", "pseudomonas.genomic.{alphabet}-k{ksize}.compare.csv"),
+        np=os.path.join(compare_dir, "pseudomonas.genomic.{alphabet}-k{ksize}.compare.np"),
+        csv=os.path.join(compare_dir, "pseudomonas.genomic.{alphabet}-k{ksize}.compare.csv"),
     params:
         alpha_cmd = lambda w: config["alphabet_info"][w.alphabet]["alpha_cmd"],
     threads: 1
     resources:
-        mem_mb=lambda wildcards, attempt: attempt *50000,
+        mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=6000,
-    log: os.path.join(logs_dir, "sourmash_compare", "pseudomonas.genomic.{alphabet}-k{ksize}.compare.log")
-    benchmark: os.path.join(logs_dir, "sourmash_compare", "pseudomonas.genomic.{alphabet}-k{ksize}.compare.benchmark")
+    log: os.path.join(logs_dir, "compare"+ expt, "pseudomonas.genomic.{alphabet}-k{ksize}.compare.log")
+    benchmark: os.path.join(logs_dir, "compare"+ expt, "pseudomonas.genomic.{alphabet}-k{ksize}.compare.benchmark")
     conda: "/home/ntpierce/2020-distance-compare/envs/sourmash-dev.yml"
     shell:
         """
@@ -198,18 +202,18 @@ rule compare_genomic:
 
 rule compare_protein:
     input:
-        siglist = os.path.join(out_dir, "compare", "pseudomonas.protein.siglist.txt")
+        siglist = os.path.join(compare_dir, "pseudomonas.protein.siglist.txt")
     output:
-        np=os.path.join(out_dir, "compare", "pseudomonas.protein.{alphabet}-k{ksize}.compare.np"),
-        csv=os.path.join(out_dir, "compare", "pseudomonas.protein.{alphabet}-k{ksize}.compare.csv"),
+        np=os.path.join(compare_dir, "pseudomonas.protein.{alphabet}-k{ksize}.compare.np"),
+        csv=os.path.join(compare_dir, "pseudomonas.protein.{alphabet}-k{ksize}.compare.csv"),
     params:
         alpha_cmd = lambda w: config["alphabet_info"][w.alphabet]["alpha_cmd"],
     threads: 1
     resources:
-        mem_mb=lambda wildcards, attempt: attempt *50000,
+        mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=6000,
-    log: os.path.join(logs_dir, "compare", "pseudomonas.genomic.{alphabet}-k{ksize}.protein.log")
-    benchmark: os.path.join(logs_dir, "compare", "pseudomonas.genomic.{alphabet}-k{ksize}.protein.benchmark")
+    log: os.path.join(logs_dir, "compare"+ expt, "pseudomonas.protein.{alphabet}-k{ksize}.protein.log")
+    benchmark: os.path.join(logs_dir, "compare"+ expt, "pseudomonas.protein.{alphabet}-k{ksize}.protein.benchmark")
     conda: "/home/ntpierce/2020-distance-compare/envs/sourmash-dev.yml"
     shell:
         """
@@ -220,15 +224,15 @@ rule compare_protein:
 
 rule compare_via_fastANI:
     input:
-        fastalist = os.path.join(out_dir, "compare", "pseudomonas.genomic.fastalist.txt")
+        fastalist = os.path.join(compare_dir, "pseudomonas.genomic.fastalist.txt")
     output:
-        os.path.join(out_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
+        os.path.join(compare_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
     threads: 10
     resources:
         mem_mb=lambda wildcards, attempt: attempt *200000,
-        runtime=1600,
-    log: os.path.join(logs_dir, "fastani", "pseudomonas.genomic.fastani.log")
-    benchmark: os.path.join(logs_dir, "fastani", "pseudomonas.genomic.fastani.benchmark")
+        runtime=6000,
+    log: os.path.join(logs_dir, "fastani"+ expt, "pseudomonas.genomic.fastani.log")
+    benchmark: os.path.join(logs_dir, "fastani"+ expt, "pseudomonas.genomic.fastani.benchmark")
     conda: "/home/ntpierce/2020-distance-compare/envs/fastani-env.yml"
     shell:
         """
@@ -237,17 +241,17 @@ rule compare_via_fastANI:
 
 rule AAI_via_compareM:
     input:
-        os.path.join(out_dir, "compare", "pseudomonas.protein.fastalist.txt")
+        os.path.join(compare_dir, "compare", "pseudomonas.protein.fastalist.txt")
     output:
-        os.path.join(out_dir, "compareM", "aai/aai_summary.tsv"),
+        os.path.join(compare_dir, "compareM", "aai/aai_summary.tsv"),
     threads: 20
     resources:
         mem_mb=lambda wildcards, attempt: attempt *100000,
-        runtime=2000,
+        runtime=6000,
     params:
-        outdir = os.path.join(out_dir, "compareM")
-    log: os.path.join(logs_dir, "compareM", "pseudomonas.compareM.log")
-    benchmark: os.path.join(logs_dir, "compareM", "pseudomonas.compareM.benchmark")
+        outdir = os.path.join(compare_dir, "compareM")
+    log: os.path.join(logs_dir, "compareM"+expt, "pseudomonas.protein.compareM.log")
+    benchmark: os.path.join(logs_dir, "compareM"+expt, "pseudomonas.protein.compareM.benchmark")
     shadow: "shallow"
     conda: "/home/ntpierce/2020-distance-compare/envs/compareM-env.yml"
     shell:

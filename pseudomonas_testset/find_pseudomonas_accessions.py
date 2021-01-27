@@ -8,6 +8,8 @@ import re
 import pandas as pd
 import ncbi.datasets
 
+from collections import namedtuple
+
 AssemblyInfo = namedtuple('AssemblyInfo',
                           'accession, display_name, tax_id, parent_tax_id, sci_name, strain, title, submission_date, seq_length, assembly_level')
 
@@ -46,8 +48,14 @@ for assembly in map(lambda d: d.assembly, genome_summary.assemblies):
 
 # convert namedtuple to pandas dataframe
 infoDF = pd.DataFrame.from_records(prot_info, columns = AssemblyInfo._fields)
-
-pseudomonas_accessions = infoDF.accession.tolist()
-print(f"Number of unique assemblies with protein sequences in the group '{tax_name}': {len(pseudomonas_accessions)}")
-
 infoDF.to_csv("pseudomonas_genomes.info.csv", index=False)
+
+#pseudomonas_accessions = infoDF.accession.tolist()
+print(f"Number of unique assemblies with protein sequences in the group '{tax_name}': {len(infoDF.index)}")
+
+# select only those with "Complete Genome":
+completeG = infoDF[infoDF["assembly_level"] == "Complete Genome"]
+
+print(f"Number of unique assemblies with protein sequences AND Complete Genome assemblies in the group '{tax_name}': {len(completeG.index)}")
+completeG.to_csv("pseudomonas_genomes.info.CompleteGenome.csv", index=False)
+
