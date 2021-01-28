@@ -40,6 +40,8 @@ rule all:
         expand(os.path.join(out_dir, "data/protein/{accession}_protein.faa.gz"), accession = pseudomonas_accessions),
         expand(os.path.join(compare_dir, "pseudomonas.genomic.{alphak}.compare.csv"), alphak=genomic_alphaksizes),
         expand(os.path.join(compare_dir, "pseudomonas.protein.{alphak}.compare.csv"), alphak=protein_alphaksizes),
+        expand(os.path.join(compare_dir, "pseudomonas.genomic.{alphak}.anchor-compare.csv.gz"), alphak=protein_alphaksizes),
+        expand(os.path.join(compare_dir, "pseudomonas.protein.{alphak}.anchor-compare.csv.gz"), alphak=protein_alphaksizes),
         os.path.join(compare_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
         os.path.join(compare_dir, "compareM", "aai/aai_summary.tsv"),
 
@@ -222,6 +224,58 @@ rule compare_protein:
                  -o {output.np} --csv {output.csv}
         """
 
+rule anchor_compare_genomic:
+    input:
+        siglist = os.path.join(compare_dir, "pseudomonas.genomic.siglist.txt")
+    output:
+        os.path.join(compare_dir, "pseudomonas.genomic.{alphabet}-k{ksize}.anchor-compare.csv.gz"),
+    params:
+        taxinfo_csv = pseudomonas_csv,
+        sigdir= os.path.join(out_dir, "genomic", "signatures"),
+        scaled= lambda w: min(alphabet_info[w.alphabet]["scaled"]),
+        sig_ext = ".genomic.sig"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *5000,
+        runtime=6000,
+    log: os.path.join(logs_dir, "compare" + expt, "pseudomonas.genomic.{alphabet}-k{ksize}.anchor-compare.log")
+    benchmark: os.path.join(logs_dir, "compare" + expt, "pseudomonas.genomic.{alphabet}-k{ksize}.anchor-compare.benchmark")
+    conda: "/home/ntpierce/2020-distance-compare/envs/sourmash-dev.yml"
+    shell:
+        """
+        python compare-pseudomonas.py --taxinfo-csv {params.taxinfo_csv} \
+               --compare-alphabet {wildcards.alphabet} --ksize {wildcards.ksize} \
+               --scaled {params.scaled} --sigdir {params.sigdir} \
+               --sig-ext {params.sig_ext} --output-csv {output} > {log} 2>&1
+        """
+
+
+rule anchor_compare_protein:
+    input:
+        siglist = os.path.join(compare_dir, "pseudomonas.protein.siglist.txt")
+    output:
+        os.path.join(compare_dir, "pseudomonas.protein.{alphabet}-k{ksize}.anchor-compare.csv.gz"),
+    params:
+        taxinfo_csv = pseudomonas_csv,
+        sigdir= os.path.join(out_dir, "protein", "signatures"),
+        scaled= lambda w: min(alphabet_info[w.alphabet]["scaled"]),
+        sig_ext = ".protein.sig"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *5000,
+        runtime=6000,
+    log: os.path.join(logs_dir, "compare"+expt, "pseudomonas.protein.{alphabet}-k{ksize}.anchor-compare.log")
+    benchmark: os.path.join(logs_dir, "compare" +expt, "pseudomonas.protein.{alphabet}-k{ksize}.anchor-compare.benchmark")
+    conda: "/home/ntpierce/2020-distance-compare/envs/sourmash-dev.yml"
+    shell:
+        """
+        python compare-pseudomonas.py  --taxinfo-csv {params.taxinfo_csv} \
+               --compare-alphabet {wildcards.alphabet} --ksize {wildcards.ksize} \
+               --scaled {params.scaled} --sigdir {params.sigdir} \
+               --sig-ext {params.sig_ext} --output-csv {output} > {log} 2>&1
+        """
+
+
 rule compare_via_fastANI:
     input:
         fastalist = os.path.join(compare_dir, "pseudomonas.genomic.fastalist.txt")
@@ -236,7 +290,7 @@ rule compare_via_fastANI:
     conda: "/home/ntpierce/2020-distance-compare/envs/fastani-env.yml"
     shell:
         """
-        fastANI -ql {input.fastalist} --rl {input.fastalist} -t {threads} -o {output} >> {log} 2>&1
+        fastANI --ql {input.fastalist} --rl {input.fastalist} -t {threads} -o {output} >> {log} 2>&1
         """
 
 rule AAI_via_compareM:
@@ -256,5 +310,5 @@ rule AAI_via_compareM:
     conda: "/home/ntpierce/2020-distance-compare/envs/compareM-env.yml"
     shell:
         """
-        comparem aai_wf --cpus {threads} --file_ext ".proteins.fasta" --proteins --sensitive {input} {params.outdir} >> {log} 2>&1
+        comparem aai_wf --cpus {threads} --file_ext ".protein.faa.gz" --proteins --sensitive {input} {params.outdir} >> {log} 2>&1
         """
