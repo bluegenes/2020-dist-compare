@@ -1,10 +1,7 @@
 # location for all generated files
 output_dir: output.psuedomonas_compare
 
-#accession_csv: pseudomonas_genomes.info.lineages.csv
-accession_csv: pseudomonas_genomes.info.CompleteGenome.lineages.csv
-
-experiment: "CompleteGenome"
+accession_csv: pseudomonas_genomes.info.lineages.csv
 
 alphabet_info:
   nucleotide:

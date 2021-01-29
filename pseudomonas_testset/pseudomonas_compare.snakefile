@@ -12,7 +12,8 @@ import os
 import re
 import pandas as pd
 
-configfile: "conf.yml"
+#configfile: "conf.yml"
+configfile: "conf_full.yml"
 out_dir = config["output_dir"]
 logs_dir = os.path.join(out_dir, "logs")
 expt = config.get("experiment", "")
@@ -40,7 +41,7 @@ rule all:
         expand(os.path.join(out_dir, "data/protein/{accession}_protein.faa.gz"), accession = pseudomonas_accessions),
         expand(os.path.join(compare_dir, "pseudomonas.genomic.{alphak}.compare.csv"), alphak=genomic_alphaksizes),
         expand(os.path.join(compare_dir, "pseudomonas.protein.{alphak}.compare.csv"), alphak=protein_alphaksizes),
-        expand(os.path.join(compare_dir, "pseudomonas.genomic.{alphak}.anchor-compare.csv.gz"), alphak=protein_alphaksizes),
+        expand(os.path.join(compare_dir, "pseudomonas.genomic.{alphak}.anchor-compare.csv.gz"), alphak=genomic_alphaksizes),
         expand(os.path.join(compare_dir, "pseudomonas.protein.{alphak}.anchor-compare.csv.gz"), alphak=protein_alphaksizes),
         os.path.join(compare_dir, "fastani-compare", "pseudomonas.genomic.fastani.tsv"),
         os.path.join(compare_dir, "compareM", "aai/aai_summary.tsv"),
