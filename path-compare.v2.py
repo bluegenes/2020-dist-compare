@@ -13,7 +13,7 @@ from sourmash.sourmash_args import load_file_as_signatures
 from collections import defaultdict, namedtuple
 
 CompareResult = namedtuple('CompareResult',
-                           'comparison_name, path, lowest_common_rank, alphabet, ksize, scaled, jaccard, max_containment, anchor_containment, anchor_hashes, query_hashes, num_common')
+                           'comparison_name, anchor_name, ref_name, path, lowest_common_rank, alphabet, ksize, scaled, jaccard, max_containment, anchor_containment, anchor_hashes, query_hashes, num_common')
 
 def compare_sigs(sigA, sigB, comparison_name, lowest_common_rank, path_name, alpha, ksize, scaled):
     sigA_numhashes = len(sigA.minhash.hashes)
@@ -23,7 +23,7 @@ def compare_sigs(sigA, sigB, comparison_name, lowest_common_rank, path_name, alp
     containA = sigA.contained_by(sigB)
     max_contain = sigA.max_containment(sigB)
     #max_contain = max(containA,containB)
-    return CompareResult(comparison_name, path_name, lowest_common_rank, alpha, ksize, scaled, jaccard, max_contain, containA, sigA_numhashes, sigB_numhashes, intersect_numhashes)
+    return CompareResult(comparison_name, str(sigA), str(sigB), path_name, lowest_common_rank, alpha, ksize, scaled, jaccard, max_contain, containA, sigA_numhashes, sigB_numhashes, intersect_numhashes)
 
 def main(args):
     ksize=args.ksize
