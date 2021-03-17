@@ -84,7 +84,9 @@ rule all:
     input: 
         conditional_outputs,
         expand(os.path.join(out_dir, "{basename}.signatures.txt"), basename=basename),
-        expand(os.path.join(out_dir, "anchor-compare", "{basename}.{alphak}.anchor_containment.csv"), basename=basename, alphak=alpha_ksizes)
+        #expand(os.path.join(out_dir, "path-compare", "{basename}.{alphak}.pathcompare.csv.gz"), basename=basename, alphak=alpha_ksizes)
+        expand(os.path.join(out_dir, "path-compare", "{basename}.pathcompare.csv.gz"), basename=basename)
+        #expand(os.path.join(out_dir, "anchor-compare", "{basename}.{alphak}.anchor_containment.csv"), basename=basename, alphak=alpha_ksizes)
 
 
 ## sketching rules ##
@@ -176,35 +178,39 @@ alpha_to_moltype = {"nucleotide": "DNA", "protein": "protein", "dayhoff": "dayho
 rule compare_paths_to_anchor:
     input: 
         paths_csv=config["evolpaths"],
-        lineages=config["lineages_csv"],
+        #lineages=config["lineages_csv"],
         sigfile=os.path.join(out_dir, "{basename}.signatures.txt")
     output:
-        contain_csv=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_containment.csv"),
-        contain_long_csv=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_containment_long.csv"),
-        jaccard_csv=os.path.join(out_dir, "anchor-compare","{basename}.{alphabet}-k{ksize}.anchor_jaccard.csv"),
-        jaccard_long_csv=os.path.join(out_dir, "anchor-compare","{basename}.{alphabet}-k{ksize}.anchor_jaccard_long.csv"),
-        jaccard_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_jaccard.pdf"),
-        contain_plot=os.path.join(out_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.anchor_contain.pdf"),
+        csv=os.path.join(out_dir, "path-compare", "{basename}.{alphabet}-k{ksize}.pathcompare.csv.gz"),
     params:
         sigdir = os.path.join(out_dir, "signatures"),
         ksize = lambda w: int(w.ksize)*int(alphabet_info[w.alphabet]["ksize_multiplier"]),
         moltype = lambda w: alpha_to_moltype[w.alphabet],
     threads: 1
     resources:
-        mem_mb=lambda wildcards, attempt: attempt *15000,
+        mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=1200,
-    log: os.path.join(logs_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.compare.log")
-    benchmark: os.path.join(logs_dir, "anchor-compare", "{basename}.{alphabet}-k{ksize}.compare.benchmark")
-    conda: "envs/sourmash-dev.yml"
+    log: os.path.join(logs_dir, "path-compare", "{basename}.{alphabet}-k{ksize}.pathcompare.log")
+    benchmark: os.path.join(logs_dir, "path-compare", "{basename}.{alphabet}-k{ksize}.pathcompare.benchmark")
+    conda: "envs/pathcompare.yml"
     shell:
         """
-        python path-compare.py {input.paths_csv} --lineages-csv {input.lineages} \
-        --alphabet {params.moltype} --ksize {params.ksize} --sigdir {params.sigdir} \
-        --from-file {input.sigfile} --signature-name-column "signame" \
-        --anchor-jaccard-csv {output.jaccard_csv} --anchor-jaccard-plot {output.jaccard_plot} \
-        --anchor-containment-csv {output.contain_csv} --anchor-containment-plot {output.contain_plot} \
-        --anchor-jaccard-long-csv {output.jaccard_long_csv} --anchor-containment-long-csv {output.contain_long_csv} 2>{log}
+        python path-compare.v2.py --paths-csv {input.paths_csv} \
+        --alphabet {params.moltype} --ksize {wildcards.ksize} --sigdir {params.sigdir} \
+        --siglist {input.sigfile} --output-csv {output.csv} > {log} 2>&1
         """
+
+rule aggregate_pathcompare:
+    input:
+        expand(os.path.join(out_dir, "path-compare", "{basename}.{alphak}.pathcompare.csv.gz"), basename=basename, alphak=alpha_ksizes)
+    output:
+        os.path.join(out_dir, "path-compare", "{basename}.pathcompare.csv.gz")
+    run:
+        # aggreate all csv.gzs --> single csv
+        aggDF = pd.concat([pd.read_csv(str(csv), sep=",") for csv in input])
+        aggDF["alpha-ksize"] = aggDF["alphabet"] + "-" + aggDF["ksize"].astype(str)
+        aggDF.to_csv(str(output), index=False)
+        
 
 
 if input_type == "nucleotide":

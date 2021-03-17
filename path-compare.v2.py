@@ -81,7 +81,7 @@ def main(args):
 def cmdline(sys_args):
     "Command line entry point w/argparse action."
     p = argparse.ArgumentParser()
-    p.add_argument("--paths_csv", default="gtdb-r95-reps.pathinfo.tsv")
+    p.add_argument("--paths-csv", default="gtdb-r95-reps.pathinfo.tsv")
     p.add_argument("--lineages-csv", default="gtdb-r95-reps.lineages.protein-filenames.reordered.csv")
     p.add_argument("--siglist", default="gtdb95-evolpaths/gtdb95-evolpaths.signatures.txt")
     p.add_argument("--sigdir", default="gtdb95-evolpaths/signatures")
