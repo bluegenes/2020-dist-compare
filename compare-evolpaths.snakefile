@@ -200,6 +200,7 @@ rule compare_paths_to_anchor:
         --siglist {input.sigfile} --output-csv {output.csv} > {log} 2>&1
         """
 
+localrules: aggregate_pathcompare
 rule aggregate_pathcompare:
     input:
         expand(os.path.join(out_dir, "path-compare", "{basename}.{alphak}.pathcompare.csv.gz"), basename=basename, alphak=alpha_ksizes)

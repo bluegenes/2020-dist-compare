@@ -23,7 +23,7 @@ def compare_sigs(sigA, sigB, comparison_name, lowest_common_rank, path_name, alp
     containA = sigA.contained_by(sigB)
     max_contain = sigA.max_containment(sigB)
     #max_contain = max(containA,containB)
-    return CompareResult(comparison_name, str(sigA), str(sigB), path_name, lowest_common_rank, alpha, ksize, scaled, jaccard, max_contain, containA, sigA_numhashes, sigB_numhashes, intersect_numhashes)
+    return CompareResult(comparison_name, str(sigA).split(" ")[0], str(sigB).split(" ")[0], path_name, lowest_common_rank, alpha, ksize, scaled, jaccard, max_contain, containA, sigA_numhashes, sigB_numhashes, intersect_numhashes)
 
 def main(args):
     ksize=args.ksize
