@@ -46,7 +46,6 @@ def read_paths(pathinfo_file):
 
 lineages_info = read_lineages(config["lineages_csv"], data_dir)
 pathinfo, path2acc = read_paths(config["evolpaths"])
-#import pdb;pdb.set_trace()
 path_names = path2acc.keys()
 sample_names = pathinfo.index.tolist()
 
@@ -243,14 +242,12 @@ if input_type == "nucleotide":
     
     def get_genome_info(w):
         anchor_acc = pathinfo[(pathinfo["path"] == w.path) & (pathinfo["rank"] == "species")].index[0]
-        anchor_g = os.path.join(data_dir, lineages_info.at[anchor_acc, 'filename'])#.values[0]
+        anchor_g = os.path.join(data_dir, lineages_info.at[anchor_acc, 'filename'])
         path_glist =  os.path.join(out_dir, "fastani", f"{w.path}/{w.path}.filepaths.txt")
         return {"anchor_genome": anchor_g, "path_genomes": path_glist}
     
     rule compare_via_fastANI:
         input:  
-            #anchor_genome = os.path.join(data_dir, lineages_info.at[w.path, 'filename']) 
-            #path_genomes = os.path.join(out_dir, "fastani", "{path}/{path}.filepaths.txt")
             unpack(get_genome_info)
         output: os.path.join(out_dir, "fastani", "{path}/{path}.fastani.tsv"),
         threads: 1
@@ -305,7 +302,6 @@ rule AAI_via_compareM:
         runtime=60,
     log: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.log")
     benchmark: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.benchmark")
-    #shadow: "shallow"
     conda: "envs/compareM-env.yml"
     shell:
         """
