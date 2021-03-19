@@ -38,18 +38,20 @@ def read_lineages(samples_file, data_dir):
 
 def read_paths(pathinfo_file):
     paths = pd.read_csv(pathinfo_file, dtype=str, sep="\t", header=0)
+    path2acc = paths.groupby('path')['accession'].apply(list).to_dict()
     paths.set_index("accession", inplace=True)
-    return paths
+    return paths, path2acc
 
 
 
 lineages_info = read_lineages(config["lineages_csv"], data_dir)
-pathinfo = read_paths(config["evolpaths"])
+pathinfo, path2acc = read_paths(config["evolpaths"])
+path_names = path2acc.keys()
 sample_names = pathinfo.index.tolist()
 
 onstart:
     print("------------------------------")
-    print("Compare jaccard and containment distances for related genomes or proteomes")
+    print("Estimate similarity for 'evolutionary paths' genomes, proteomes")
     print("------------------------------")
 
 onsuccess:
@@ -75,9 +77,9 @@ input_type = config["input_type"]
 conditional_outputs = []
 if input_type == "nucleotide":
     conditional_outputs += expand(os.path.join(out_dir, "fastani-compare", "{basename}.fastani.tsv"), basename=basename)
-    conditional_outputs += [os.path.join(out_dir, "compareM", "aai/aai_summary.tsv")]
-elif input_type == "protein":
-    conditional_outputs += [os.path.join(out_dir, "compareM", "aai/aai_summary.tsv")]
+ #   conditional_outputs += [os.path.join(out_dir, "compareM", "aai/aai_summary.tsv")]
+#elif input_type == "protein":
+    #conditional_outputs += [os.path.join(out_dir, "compareM", "aai/aai_summary.tsv")]
 
 
 rule all:
@@ -85,8 +87,9 @@ rule all:
         conditional_outputs,
         expand(os.path.join(out_dir, "{basename}.signatures.txt"), basename=basename),
         #expand(os.path.join(out_dir, "path-compare", "{basename}.{alphak}.pathcompare.csv.gz"), basename=basename, alphak=alpha_ksizes)
-        expand(os.path.join(out_dir, "path-compare", "{basename}.pathcompare.csv.gz"), basename=basename)
         #expand(os.path.join(out_dir, "anchor-compare", "{basename}.{alphak}.anchor_containment.csv"), basename=basename, alphak=alpha_ksizes)
+        expand(os.path.join(out_dir, "path-compare", "{basename}.pathcompare.csv.gz"), basename=basename),
+        expand( os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.csv.gz"), basename=basename),
 
 
 ## sketching rules ##
@@ -172,7 +175,6 @@ rule signames_to_file:
 
 ## compare anchor species ##
 
-
 alpha_to_moltype = {"nucleotide": "DNA", "protein": "protein", "dayhoff": "dayhoff", "hp": "hp"}
 
 rule compare_paths_to_anchor:
@@ -213,6 +215,17 @@ rule aggregate_pathcompare:
         aggDF.to_csv(str(output), index=False)
         
 
+localrules: build_filepaths_for_compareM
+rule build_filepaths_for_compareM:
+    output:
+        os.path.join(out_dir, "compareM", "{path}", "{path}.filepaths.txt")
+    run:
+        with open(str(output), "w") as out:
+            acc_list = path2acc[wildcards.path]
+            for acc in acc_list:
+                fn = os.path.join(data_dir, lineages_info.at[acc, 'filename'])
+                out.write(f"{fn}\n")
+
 
 if input_type == "nucleotide":
     rule compare_via_fastANI:
@@ -231,45 +244,54 @@ if input_type == "nucleotide":
             """
             fastANI --ql {input} --rl {input} -o {output} > {log} 2>&1
             """
+    
+rule AAI_via_compareM:
+    input: 
+        os.path.join(out_dir, "compareM", "{path}/{path}.filepaths.txt")
+    output:
+        os.path.join(out_dir, "compareM", "{path}/aai/aai_summary.tsv"),
+    params:
+        proteins_cmd = "--proteins" if input_type == "protein" else "",
+        file_ext = ".faa.gz" if input_type == "protein" else ".fna.gz",
+        outdir = lambda w: os.path.join(out_dir, "compareM", w.path),
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *5000,
+        runtime=60,
+    log: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.log")
+    benchmark: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.benchmark")
+    #shadow: "shallow"
+    conda: "envs/compareM-env.yml"
+    shell:
+        """
+        comparem aai_wf --cpus {threads} {params.proteins_cmd} --file_ext {params.file_ext:q}  --sensitive {input} {params.outdir} > {log} 2>&1
+        """
+    
+localrules: write_compareM_result_csv
+rule write_compareM_result_csv:
+    input:
+        expand(os.path.join(out_dir, "compareM", "{path}/aai/aai_summary.tsv"), path=path_names)
+    output:
+        os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.filecsv"),
+    run:
+        with open(str(output), "w") as out:
+            for path in path_names:
+                out.write(f"{path},{out_dir}/compareM/{path}/aai/aai_summary.tsv\n")
 
-    rule AAI_via_compareM:
-        input: 
-            expand(os.path.join(out_dir, "{basename}.filepaths.txt"), basename=basename)
-        output:
-            os.path.join(out_dir, "compareM", "aai/aai_summary.tsv"),
-        threads: 32
-        resources:
-            mem_mb=lambda wildcards, attempt: attempt *200000,
-            runtime=1200,
-        params:
-            outdir = os.path.join(out_dir, "compareM")
-        log: os.path.join(logs_dir, "compareM", "compareM.log")
-        benchmark: os.path.join(logs_dir, "compareM", "compareM.benchmark")
-        #shadow: "shallow"
-        conda: "envs/compareM-env.yml"
-        shell:
-            """
-            comparem aai_wf --cpus {threads} --file_ext ".fna.gz"  --sensitive {input} {params.outdir} > {log} 2>&1
-            """
-elif input_type == "protein":
-    rule AAI_via_compareM:
-        input: 
-            expand(os.path.join(out_dir, "{basename}.filepaths.txt"), basename = basename)
-        output:
-            os.path.join(out_dir, "compareM", "aai/aai_summary.tsv"),
-        threads: 32
-        resources:
-            mem_mb=lambda wildcards, attempt: attempt *200000,
-            runtime=1200,
-        params:
-            outdir = os.path.join(out_dir, "compareM")
-        log: os.path.join(logs_dir, "compareM", "compareM.log")
-        benchmark: os.path.join(logs_dir, "compareM", "compareM.benchmark")
-        #shadow: "shallow"
-        conda: "envs/compareM-env.yml"
-        shell:
-            """
-            comparem aai_wf --cpus {threads} --proteins --file_ext ".faa.gz" --sensitive {input} {params.outdir} > {log} 2>&1
-            """
+localrules: aggregate_compareM_results
+rule aggregate_compareM_results:
+    input:
+        compareM=os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.filecsv"),
+        paths=config["evolpaths"],
+    output: os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.csv.gz"),
+    log: os.path.join(logs_dir, "compareM", "{basename}.aggregate_compareM.log")
+    benchmark: os.path.join(logs_dir, "compareM", "{basename}.aggregate_compareM.benchmark")
+    shell:
+        """
+        python aggregate-compareM-results.py --comparem-tsv-filecsv {input.compareM} \
+                                             --path-info {input.paths} \
+                                             --output-csv {output} > {log} 2>&1
+        """
+
 
 
