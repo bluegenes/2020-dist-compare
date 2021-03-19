@@ -46,6 +46,7 @@ def read_paths(pathinfo_file):
 
 lineages_info = read_lineages(config["lineages_csv"], data_dir)
 pathinfo, path2acc = read_paths(config["evolpaths"])
+#import pdb;pdb.set_trace()
 path_names = path2acc.keys()
 sample_names = pathinfo.index.tolist()
 
@@ -76,7 +77,8 @@ input_type = config["input_type"]
 
 conditional_outputs = []
 if input_type == "nucleotide":
-    conditional_outputs += expand(os.path.join(out_dir, "fastani-compare", "{basename}.fastani.tsv"), basename=basename)
+    conditional_outputs += expand(os.path.join(out_dir, "fastani", "{basename}.path-fastani.csv.gz"),basename=basename)
+    #conditional_outputs += expand(os.path.join(out_dir, "fastani-compare", "{basename}.fastani.tsv"), basename=basename)
  #   conditional_outputs += [os.path.join(out_dir, "compareM", "aai/aai_summary.tsv")]
 #elif input_type == "protein":
     #conditional_outputs += [os.path.join(out_dir, "compareM", "aai/aai_summary.tsv")]
@@ -89,7 +91,7 @@ rule all:
         #expand(os.path.join(out_dir, "path-compare", "{basename}.{alphak}.pathcompare.csv.gz"), basename=basename, alphak=alpha_ksizes)
         #expand(os.path.join(out_dir, "anchor-compare", "{basename}.{alphak}.anchor_containment.csv"), basename=basename, alphak=alpha_ksizes)
         expand(os.path.join(out_dir, "path-compare", "{basename}.pathcompare.csv.gz"), basename=basename),
-        expand( os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.csv.gz"), basename=basename),
+        expand( os.path.join(out_dir, "compareM", "{basename}.path-compareM.csv.gz"), basename=basename),
 
 
 ## sketching rules ##
@@ -226,25 +228,68 @@ rule build_filepaths_for_compareM:
                 fn = os.path.join(data_dir, lineages_info.at[acc, 'filename'])
                 out.write(f"{fn}\n")
 
-
 if input_type == "nucleotide":
+    
+    localrules: build_filepaths_for_fastani
+    rule build_filepaths_for_fastani:
+        output: os.path.join(out_dir, "fastani", "{path}", "{path}.filepaths.txt")
+        run:
+            with open(str(output), "w") as out:
+                acc_list = path2acc[wildcards.path]
+                for acc in acc_list:
+                    fn = os.path.join(data_dir, lineages_info.at[acc, 'filename'])
+                    out.write(f"{fn}\n")
+
+    
+    def get_genome_info(w):
+        anchor_acc = pathinfo[(pathinfo["path"] == w.path) & (pathinfo["rank"] == "species")].index[0]
+        anchor_g = os.path.join(data_dir, lineages_info.at[anchor_acc, 'filename'])#.values[0]
+        path_glist =  os.path.join(out_dir, "fastani", f"{w.path}/{w.path}.filepaths.txt")
+        return {"anchor_genome": anchor_g, "path_genomes": path_glist}
+    
     rule compare_via_fastANI:
-        input: 
-            os.path.join(out_dir, "{basename}.filepaths.txt")
-        output:
-            os.path.join(out_dir, "fastani-compare", "{basename}.fastani.tsv"),
+        input:  
+            #anchor_genome = os.path.join(data_dir, lineages_info.at[w.path, 'filename']) 
+            #path_genomes = os.path.join(out_dir, "fastani", "{path}/{path}.filepaths.txt")
+            unpack(get_genome_info)
+        output: os.path.join(out_dir, "fastani", "{path}/{path}.fastani.tsv"),
         threads: 1
         resources:
-            mem_mb=lambda wildcards, attempt: attempt *300000,
+            mem_mb=lambda wildcards, attempt: attempt *5000,
             runtime=1200,
-        log: os.path.join(logs_dir, "fastani", "{basename}.fastani.log")
-        benchmark: os.path.join(logs_dir, "fastani", "{basename}.fastani.benchmark")
+        log: os.path.join(logs_dir, "fastani", "{path}/{path}.fastani.log")
+        benchmark: os.path.join(logs_dir, "fastani", "{path}/{path}.fastani.benchmark")
         conda: "envs/fastani-env.yml"
         shell:
             """
-            fastANI --ql {input} --rl {input} -o {output} > {log} 2>&1
+            fastANI -q {input.anchor_genome:q} --rl {input.path_genomes:q} -o {output} > {log} 2>&1
             """
+
+    localrules: write_fastani_result_csv
+    rule write_fastani_result_csv:
+        input: expand(os.path.join(out_dir, "fastani", "{path}/{path}.fastani.tsv"), path=path_names)
+        output: os.path.join(out_dir, "fastani", "{basename}.path-fastani.filecsv"),
+        run:
+            with open(str(output), "w") as out:
+                for path in path_names:
+                    out.write(f"{path},{out_dir}/fastani/{path}/{path}.fastani.tsv\n")
+ 
     
+    localrules: aggregate_fastani_results
+    rule aggregate_fastani_results:
+        input:
+            fastani=os.path.join(out_dir, "fastani", "{basename}.path-fastani.filecsv"),
+            paths=config["evolpaths"],
+        output: os.path.join(out_dir, "fastani", "{basename}.path-fastani.csv.gz"),
+        log: os.path.join(logs_dir, "fastani", "{basename}.path-fastani.aggregate.log")
+        benchmark: os.path.join(logs_dir, "fastani", "{basename}.path-fastani.aggregate.benchmark")
+        shell:
+            """
+            python aggregate-fastani-results.py --fastani-filecsv {input.fastani} \
+                                                 --path-info {input.paths} \
+                                                 --output-csv {output} > {log} 2>&1
+            """
+     
 rule AAI_via_compareM:
     input: 
         os.path.join(out_dir, "compareM", "{path}/{path}.filepaths.txt")
@@ -272,7 +317,7 @@ rule write_compareM_result_csv:
     input:
         expand(os.path.join(out_dir, "compareM", "{path}/aai/aai_summary.tsv"), path=path_names)
     output:
-        os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.filecsv"),
+        os.path.join(out_dir, "compareM", "{basename}.path-compareM.filecsv"),
     run:
         with open(str(output), "w") as out:
             for path in path_names:
@@ -281,11 +326,11 @@ rule write_compareM_result_csv:
 localrules: aggregate_compareM_results
 rule aggregate_compareM_results:
     input:
-        compareM=os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.filecsv"),
+        compareM=os.path.join(out_dir, "compareM", "{basename}.path-compareM.filecsv"),
         paths=config["evolpaths"],
-    output: os.path.join(out_dir, "compareM", "{basename}.anchor-compareM.csv.gz"),
-    log: os.path.join(logs_dir, "compareM", "{basename}.aggregate_compareM.log")
-    benchmark: os.path.join(logs_dir, "compareM", "{basename}.aggregate_compareM.benchmark")
+    output: os.path.join(out_dir, "compareM", "{basename}.path-compareM.csv.gz"),
+    log: os.path.join(logs_dir, "compareM", "{basename}.path-compareM.aggregate.log")
+    benchmark: os.path.join(logs_dir, "compareM", "{basename}.path-compareM.aggregate.benchmark")
     shell:
         """
         python aggregate-compareM-results.py --comparem-tsv-filecsv {input.compareM} \
