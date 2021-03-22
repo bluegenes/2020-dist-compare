@@ -216,19 +216,51 @@ rule aggregate_pathcompare:
         aggDF.to_csv(str(output), index=False)
         
 
-localrules: build_filepaths_for_compareM
-rule build_filepaths_for_compareM:
-    output:
-        os.path.join(out_dir, "compareM", "{path}", "{path}.filepaths.txt")
-    run:
-        with open(str(output), "w") as out:
-            acc_list = path2acc[wildcards.path]
-            for acc in acc_list:
-                fn = os.path.join(data_dir, lineages_info.at[acc, 'filename'])
-                out.write(f"{fn}\n")
+
 
 if input_type == "nucleotide":
-    
+    rule build_filepaths_for_compareM:
+        output:
+            os.path.join(out_dir, "compareM", "{path}", "{path}.filepaths.txt")
+        params: 
+            outdir = lambda w: os.path.join(out_dir, "compareM", w.path)
+        group: "nuclcompareM"
+        run:
+            with open(str(output), "w") as out:
+                acc_list = path2acc[wildcards.path]
+                for acc in acc_list:
+                    fn = os.path.join(data_dir, lineages_info.at[acc, 'filename'])
+                    fn_gunzip = os.path.join(params.outdir, os.path.basename(fn).rsplit(".gz")[0])
+                    shell("gunzip -c {fn} > {fn_gunzip}")
+                    out.write(f"{fn_gunzip}\n")
+
+    # prodigal cant use gzipped nucl files!!(???)
+    rule nucl_AAI_via_compareM:
+        input:
+            os.path.join(out_dir, "compareM", "{path}/{path}.filepaths.txt")
+        output:
+            os.path.join(out_dir, "compareM", "{path}/aai/aai_summary.tsv"),
+        params:
+            proteins_cmd = "",
+            file_ext = ".fna",
+            outdir = lambda w: os.path.join(out_dir, "compareM", w.path),
+            fna_filepath = lambda w: os.path.join(out_dir, "compareM", w.path, "*fna"),
+            # sigh, this is hacky. should probably use snakemake temp files
+        group: "nuclcompareM"
+        threads: 1
+        resources:
+            mem_mb=lambda wildcards, attempt: attempt *5000,
+            runtime=60,
+        log: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.log")
+        benchmark: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.benchmark")
+        conda: "envs/compareM-env.yml"
+        shell:
+            """
+            comparem aai_wf --cpus {threads} {params.proteins_cmd} --file_ext {params.file_ext:q}  --sensitive {input} {params.outdir} > {log} 2>&1
+            rm -rf {params.fna_filepath} 
+            """
+
+
     localrules: build_filepaths_for_fastani
     rule build_filepaths_for_fastani:
         output: os.path.join(out_dir, "fastani", "{path}", "{path}.filepaths.txt")
@@ -287,26 +319,40 @@ if input_type == "nucleotide":
                                                  --output-csv {output} > {log} 2>&1
             """
      
-rule AAI_via_compareM:
-    input: 
-        os.path.join(out_dir, "compareM", "{path}/{path}.filepaths.txt")
-    output:
-        os.path.join(out_dir, "compareM", "{path}/aai/aai_summary.tsv"),
-    params:
-        proteins_cmd = "--proteins" if input_type == "protein" else "",
-        file_ext = ".faa.gz" if input_type == "protein" else ".fna.gz",
-        outdir = lambda w: os.path.join(out_dir, "compareM", w.path),
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, attempt: attempt *5000,
-        runtime=60,
-    log: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.log")
-    benchmark: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.benchmark")
-    conda: "envs/compareM-env.yml"
-    shell:
-        """
-        comparem aai_wf --cpus {threads} {params.proteins_cmd} --file_ext {params.file_ext:q}  --sensitive {input} {params.outdir} > {log} 2>&1
-        """
+else:
+    # compareM proteins CAN handle gzipped files (??)
+    localrules: build_filepaths_for_compareM
+    rule build_filepaths_for_compareM:
+        output:
+            os.path.join(out_dir, "compareM", "{path}", "{path}.filepaths.txt")
+        run:
+            with open(str(output), "w") as out:
+                acc_list = path2acc[wildcards.path]
+                for acc in acc_list:
+                    fn = os.path.join(data_dir, lineages_info.at[acc, 'filename'])
+                    out.write(f"{fn}\n")
+   
+
+    rule AAI_via_compareM:
+        input: 
+            os.path.join(out_dir, "compareM", "{path}/{path}.filepaths.txt")
+        output:
+            os.path.join(out_dir, "compareM", "{path}/aai/aai_summary.tsv"),
+        params:
+            proteins_cmd = "--proteins" if input_type == "protein" else "",
+            file_ext = ".faa.gz" if input_type == "protein" else ".fna",
+            outdir = lambda w: os.path.join(out_dir, "compareM", w.path),
+        threads: 1
+        resources:
+            mem_mb=lambda wildcards, attempt: attempt *5000,
+            runtime=60,
+        log: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.log")
+        benchmark: os.path.join(logs_dir, "compareM/paths", "{path}.compareM.benchmark")
+        conda: "envs/compareM-env.yml"
+        shell:
+            """
+            comparem aai_wf --cpus {threads} {params.proteins_cmd} --file_ext {params.file_ext:q}  --sensitive {input} {params.outdir} > {log} 2>&1
+            """
     
 localrules: write_compareM_result_csv
 rule write_compareM_result_csv:
