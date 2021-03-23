@@ -20,8 +20,8 @@ def main(args):
     anchor_results = []
     for (path, inF) in compareM_info:
         aai_tsv = pd.read_csv(inF, sep = "\t", header=0)
-        aai_tsv["#Genome A"] = aai_tsv["#Genome A"].str.rsplit("_", 1, expand=True)[0].str.split("_", 1, expand=True)[1]
-        aai_tsv["Genome B"] = aai_tsv["Genome B"].str.rsplit("_", 1, expand=True)[0].str.split("_", 1, expand=True)[1]
+        aai_tsv["#Genome A"] = aai_tsv["#Genome A"].str.rsplit("_", 1, expand=True)[0].str.replace('RS_' , '').str.replace('GB_' , '')
+        aai_tsv["Genome B"] = aai_tsv["Genome B"].str.rsplit("_", 1, expand=True)[0].str.replace('RS_' , '').str.replace('GB_' , '')
         anchor_acc = pathInfo.loc[(pathInfo["path"] == path) & (pathInfo["rank"] == "species")]["accession"].values[0]
         # first, let's get just the anchor results:
         anchor_compare_only = aai_tsv.loc[(aai_tsv["#Genome A"] == anchor_acc) | (aai_tsv["Genome B"] == anchor_acc)]
