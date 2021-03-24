@@ -194,7 +194,7 @@ rule compare_via_fastANI:
         runtime=1200,
     log: os.path.join(logs_dir, "fastani", "{lcrank}-anchor{anchor}.fastani.log")
     benchmark: os.path.join(logs_dir, "fastani", "{lcrank}-anchor{anchor}.fastani.benchmark")
-    conda: "envs/fastani-env.yml"
+    conda: "/home/ntpierce/2020-distance-compare/envs/fastani-env.yml"
     shell:
         """
         fastANI -q {input.anchor_genome:q} --rl {input.comparison_filelist:q} -o {output} > {log} 2>&1
@@ -271,7 +271,7 @@ rule protein_AAI_via_compareM:
         runtime=60,
     log: os.path.join(logs_dir, "compareM/protein", "{lcrank}-anchor{anchor}.compareM.log")
     benchmark: os.path.join(logs_dir, "compareM/protein", "{lcrank}-anchor{anchor}.compareM.benchmark")
-    conda: "envs/compareM-env.yml"
+    conda: "/home/ntpierce/2020-distance-compare/envs/compareM-env.yml"
     shell:
         """
         comparem aai_wf --cpus {threads} {params.proteins_cmd} --file_ext {params.file_ext:q}  --sensitive {input} {params.outdir} > {log} 2>&1
@@ -318,7 +318,7 @@ rule nucl_AAI_via_compareM:
         runtime=60,
     log: os.path.join(logs_dir, "compareM/genomic", "{lcrank}-anchor{anchor}.compareM.log")
     benchmark: os.path.join(logs_dir, "compareM/genomic", "{lcrank}-anchor{anchor}.compareM.benchmark")
-    conda: "envs/compareM-env.yml"
+    conda: "/home/ntpierce/2020-distance-compare/envs/compareM-env.yml"
     shell:
         """
         comparem aai_wf --cpus {threads} {params.proteins_cmd} --file_ext {params.file_ext:q}  --sensitive {input} {params.outdir} > {log} 2>&1
@@ -403,7 +403,7 @@ rule taxon_compare_genomic:
         runtime=1200,
     log: os.path.join(logs_dir, "taxon-compare/{input_type}", "{basename}.{alphabet}-k{ksize}.taxoncompare.log")
     benchmark: os.path.join(logs_dir, "taxon-compare/{input_type}", "{basename}.{alphabet}-k{ksize}.taxoncompare.benchmark")
-    conda: "envs/pathcompare.yml"
+    conda: "/home/ntpierce/2020-distance-compare/envs/pathcompare.yml"
     shell:
         """
         python taxon-compare.py --comparison-csv {input.comparison_csv} \
