@@ -11,14 +11,16 @@ from collections import defaultdict, namedtuple
 
 # build long form comparison csv, each line containing the anchor acc and the comparison genome.
 # use these later to build appropriate filelists for fastani, compareM and sourmash comparisons
+# AND/OR ... build and dump a json!? easier!
 
 ComparisonInfo = namedtuple('ComparisonInfo',
-                          'anchor_acc, lowest_common_rank, lowest_common_taxon, tax_id, compare_accs')
+                          'anchor_acc, lowest_common_rank, anchor_sciname, tax_id, compare_accs')
 
 def main(args):
     infoDF = pd.read_csv(args.taxinfo_csv)
     comparison_ranks = ["genus", "species", "strain"]
     cInfo = []
+    #cJ = {}
     for c_rank in comparison_ranks:
         # genus comparisons
         if c_rank == "genus":
@@ -29,6 +31,7 @@ def main(args):
             genus_compare_accessions = infoDF["accession"].tolist()
             genus_compare_accessions.remove(genus_anchor_acc)
             #cInfo.append(ComparisonInfo("genus", genus_name, psd_taxid, genus_anchor_acc, genus_compare_accessions))
+            #cJ[genus_anchor_acc] = ("genus", genus_name, psd_taxid, genus_compare_accessions)
             for gc_acc in genus_compare_accessions:
                 #multiple rows per comparison (long format)
                 cInfo.append(ComparisonInfo(genus_anchor_acc, "genus", genus_name, psd_taxid, gc_acc))
