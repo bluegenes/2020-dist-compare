@@ -3,6 +3,7 @@ output_dir: output.psuedomonas_compare
 
 #accession_csv: pseudomonas_genomes.info.lineages.csv
 accession_csv: pseudomonas_genomes.info.CompleteGenome.lineages.csv
+comparison_info: pseudomonas_genomes.CompleteGenome.comparison-info.csv
 
 experiment: "CompleteGenome"
 
