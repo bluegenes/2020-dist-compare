@@ -51,6 +51,7 @@ def main(args):
 
 
     taxon_comparisons = []
+    compareInfo = pd.read_csv(args.comparison_csv)
     # from comparison csv, build dictionary of group:: anchor, comparison filenames
     compareInfo = compareInfo.groupby(["anchor_acc", "lowest_common_rank", "anchor_sciname"]).agg({"compare_accs":lambda x: list(x)})#.reset_index()
     # loop through comparisons
@@ -63,7 +64,7 @@ def main(args):
         anchor_sig = next(selector)
 
         # iterate through comparison sigs
-        compare_accs = compareInfo.loc[(w.anchor, w.lcrank)][ "compare_accs"].values[0]
+        compare_accs = compareInfo.loc[(anchor_acc, lowest_common_rank)]["compare_accs"].values[0]
         for compare_acc in compare_accs:
             # select and load comparison sig
             selector = load_file_as_signatures(sigD[compare_acc], ksize=ksize, select_moltype=moltype)

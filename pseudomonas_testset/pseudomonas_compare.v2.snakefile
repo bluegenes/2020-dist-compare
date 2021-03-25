@@ -179,7 +179,7 @@ rule write_genomic_fastani_fastalist:
 def get_fastani_comparison_info(w):
     compare_accs = compareInfo.loc[(w.anchor, w.lcrank)]["compare_accs"].values[0]
     genome_paths = []
-    anchor_g = os.path.join(out_dir, "data/genomic/{w.anchor}_genomic.fna.gz")
+    anchor_g = os.path.join(out_dir, f"data/genomic/{w.anchor}_genomic.fna.gz")
     c_filelist = os.path.join(compare_dir, "fastani", f"{w.lcrank}-anchor{w.anchor}", f"{w.lcrank}-anchor{w.anchor}.genomic.fastalist")
     return {"anchor_genome" : anchor_g, "comparison_filelist": c_filelist}
 
@@ -396,7 +396,7 @@ rule taxon_compare_genomic:
     params:
         sigdir = os.path.join(out_dir, "signatures"),
         moltype = lambda w: alpha_to_moltype[w.alphabet],
-        sigext = lambda w: f"_{w.input_type}.sig"
+        sigext = lambda w: f".{w.input_type}.sig"
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *10000,
