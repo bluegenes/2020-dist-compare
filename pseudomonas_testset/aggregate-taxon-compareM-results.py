@@ -33,7 +33,7 @@ def main(args):
         anchor_compare_only = aai_tsv.loc[(aai_tsv["#Genome A"] == anchor_acc) | (aai_tsv["Genome B"] == anchor_acc)]
 
         # now loop through comparison accessions
-        compare_accs = compareInfo.loc[(w.anchor, w.lcrank)]["compare_accs"].values[0]
+        compare_accs = compareInfo.loc[(anchor_acc, lowest_common_rank)]["compare_accs"].values[0]
 
         for compare_acc in compare_accs:
             comparison_name = f"{anchor_acc}_x_{compare_acc}"

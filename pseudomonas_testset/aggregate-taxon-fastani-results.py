@@ -26,12 +26,14 @@ def main(args):
         anchor_acc = comparison_group.split("-anchor")[1]
 
         fastani = pd.read_csv(inF, sep = "\t", header=None, names=['anchor','ref','fastani_ident','count_bidirectional_frag_mappings','total_query_frags'])
+        if fastani.empty:
+            continue
         fastani["anchor"] = fastani["anchor"].str.rsplit("/", 1, expand=True)[1].str.rsplit("_genomic.fna.gz", 1, expand=True)[0]
         fastani["ref"] = fastani["ref"].str.rsplit("/", 1, expand=True)[1].str.rsplit("_genomic.fna.gz", 1, expand=True)[0]
         fastani.set_index("ref",inplace=True)
 
         # now check comparisons for results:
-        compare_accs = compareInfo.loc[(w.anchor, w.lcrank)]["compare_accs"].values[0]
+        compare_accs = compareInfo.loc[(anchor_acc, lowest_common_rank)]["compare_accs"].values[0]
 
         for compare_acc in compare_accs:
             comparison_name = f"{anchor_acc}_x_{compare_acc}"

@@ -215,7 +215,7 @@ rule write_fastani_result_csv:
     run:
         with open(str(output), "w") as out:
             for inF in input:
-                comparison_name = os.path.basename(str(inF)).rsplit(".fastani.tsv")
+                comparison_name = os.path.basename(str(inF)).rsplit(".fastani.tsv")[0]
                 out.write(f"{comparison_name},{str(inF)}\n")
 
 localrules: aggregate_fastani_results
@@ -341,7 +341,7 @@ rule compile_compareM_resultfiles:
     run:
         with open(str(output), "w") as out:
             for inF in input:
-                comparison_name = os.path.basename(str(inF)).rsplit(".fastani.tsv")
+                comparison_name = os.path.basename(str(inF).rsplit(f"/{wildcards.input_type}")[0])
                 out.write(f"{comparison_name},{str(inF)}\n")
 
 localrules: aggregate_compareM_results
