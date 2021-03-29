@@ -265,7 +265,7 @@ rule protein_AAI_via_compareM:
         proteins_cmd = "--proteins",
         file_ext = ".faa.gz",
         outdir = lambda w: os.path.join(compare_dir, "compareM", f"{w.lcrank}-anchor{w.anchor}/protein"),
-    threads: 1
+    threads: 20
     resources:
         mem_mb=lambda wildcards, attempt: attempt *5000,
         runtime=60,
@@ -312,7 +312,7 @@ rule nucl_AAI_via_compareM:
         # sigh, this is hacky. should probably use snakemake temp files
         fna_filepath = lambda w: os.path.join(compare_dir, "compareM", f"{w.lcrank}-anchor{w.anchor}/genomic", "*fna"),
     group: "nuclcompareM"
-    threads: 1
+    threads: 20
     resources:
         mem_mb=lambda wildcards, attempt: attempt *5000,
         runtime=60,
