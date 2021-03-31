@@ -1,0 +1,6 @@
+.DS_Store
+*tsv
+*output.*/
+notebooks/.ipynb_checkpoints/
+*pdf
+*png
