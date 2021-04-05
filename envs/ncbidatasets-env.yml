@@ -8,6 +8,8 @@ dependencies:
   - pandas==1.2.1
   - seaborn=0.11.1
   - snakemake=5.32.0
+  - ete2=2.3.10
+  - jupyterlab
   - pip
   - pip:
     - ncbi-datasets-pylib==10.25.0
