@@ -1,7 +1,0 @@
-name: compareM
-channels:
-  - conda-forge
-  - bioconda
-  - defaults
-dependencies:
-  - comparem=0.1.2
