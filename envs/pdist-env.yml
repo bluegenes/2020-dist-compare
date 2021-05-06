@@ -4,12 +4,9 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - python>=3.7
+  - python>=3.8
   - pytest
   - rust
   - pandas==1.1.4
   - seaborn=0.11.0
-  - pip
-  - pip:
-    - git+https://github.com/dib-lab/sourmash@latest
-    - dendropy==4.4.0
+  - sourmash >=4,<5
