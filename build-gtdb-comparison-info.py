@@ -7,7 +7,7 @@ import pytest
 
 import pandas as pd
 from sourmash.lca import lca_utils
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from itertools import combinations
 
 ComparisonInfo = namedtuple('ComparisonInfo',
@@ -26,7 +26,6 @@ def find_lca(linA,linB, reverse_taxlist=["species", "genus", "family", "order", 
     return lca_rank, lca_lin
 
 
-
 def main(args):
     metadataDF = pd.read_csv(args.gtdb_metadata, header=0, low_memory=False)
     metadataDF["accession"] = metadataDF["accession"].str.replace("GB_", "").str.replace("RS_", "")
@@ -37,30 +36,54 @@ def main(args):
     if args.taxonomy == "ncbi":
         taxonomy = "ncbi_taxonomy"
 
-    cInfo = []
     # get dictionary of species_path :: accession
     acc2path = pd.Series(metadataDF[taxonomy].values,index=metadataDF.index).to_dict()
     reverse_taxlist = list(lca_utils.taxlist(include_strain=False))[::-1]
-    # iterate through all possible pairwise comparisons
-    for n, (acc1, acc2) in enumerate(combinations(acc2path.keys(), r = 2)):
-        comparison_name = f"{acc1}_x_{acc2}"
-        if n !=0 and n % 10000 == 0:
-            print(f"... checking {n}th comparison, {comparison_name}\n")
-        # check if either are gtdb representative genomes
-        rep1,rep2=False,False
-        if acc1 in representative_accs:
-          rep1 = True
-        if acc2 in representative_accs:
-          rep2 = True
-        lin1 = lca_utils.make_lineage(acc2path[acc1])
-        lin2 = lca_utils.make_lineage(acc2path[acc2])
-        lca_rank,lca_lin = find_lca(lin1,lin2)
-       # if there's an LCA rank, store the comparison
-        if lca_rank:
-            lca_lin = ";".join(lca_utils.zip_lineage(lca_lin, truncate_empty=True))
-            if n !=0 and n % 1000 == 0:
-                print(f"...adding lca comparison for rank {lca_rank}: {comparison_name}")
-            cInfo.append(ComparisonInfo(comparison_name,acc1,acc2,lca_rank,lca_lin,rep1,rep2))
+
+    # build an informed list of pairwise comparisons
+    # default dict rank_paths_to_idents[rank][lin]={acc1,acc2...}
+    rank_paths_to_acc = defaultdict(lambda: defaultdict(set))
+    for acc, lineage in acc2path.items():
+        for rank in lca_utils.taxlist(include_strain=False):
+            lin =  lca_utils.make_lineage(lineage)
+            tup = lca_utils.pop_to_rank(lin, rank)
+            assert tup
+            assert tup[-1].rank == rank
+
+            # record identifer for that lineage
+            rank_paths_to_acc[rank][tup].add(acc)
+
+    cInfo = []
+    # iterate through pairwise comparisons
+    unique_comparisons=set()
+    for rank in reverse_taxlist: #species --> superk
+        print(f"starting comparisons at rank: {rank}")
+        lineage_info_at_rank = rank_paths_to_acc[rank]
+        for lineage, accessions in lineage_info_at_rank.items():
+            if len(accessions) == 1:
+                continue
+            for n, (acc1, acc2) in enumerate(combinations(accessions, r = 2)):
+                lca_rank = rank
+                comparison_name = f"{acc1}_x_{acc2}"
+                comparison_set = frozenset([acc1,acc2])
+                # if we saw this comparison at a lower taxonomic rank, ignore here
+                if comparison_set in unique_comparisons:
+                    continue
+                else:
+                    unique_comparisons.add(comparison_set)
+
+                if n !=0 and n % 10000 == 0:
+                    print(f"... checking {n}th comparison, {comparison_name}\n")
+                # check if either are gtdb representative genomes
+                rep1,rep2=False,False
+                if acc1 in representative_accs:
+                  rep1 = True
+                if acc2 in representative_accs:
+                  rep2 = True
+                if n !=0 and n % 1000 == 0:
+                    print(f"... adding lca comparison for rank {lca_rank}: {comparison_name}")
+                lca_lin = ";".join(lca_utils.zip_lineage(lineage, truncate_empty=True))
+                cInfo.append(ComparisonInfo(comparison_name,acc1,acc2,lca_rank,lca_lin,rep1,rep2))
 
     # convert to pandas DF and write csv:
     compareDF = pd.DataFrame.from_records(cInfo, columns = ComparisonInfo._fields)
