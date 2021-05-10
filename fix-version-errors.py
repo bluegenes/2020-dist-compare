@@ -21,9 +21,9 @@ def main(args):
 def cmdline(sys_args):
     "Command line entry point w/argparse action."
     p = argparse.ArgumentParser()
-    p.add_argument("--gtdb-metadata",  default = "/group/ctbrowngrp/gtdb/gtdb-r202.metadata.csv.gz")
+    p.add_argument("--gtdb-metadata",  default = "/group/ctbrowngrp/gtdb/gtdb-rs202.metadata.csv.gz")
     p.add_argument("--version-errors-log", default="/home/ntpierce/sourmash_databases/output.gtdb-databases/accession_version_errors.csv")
-    p.add_argument("--output-csv", default="/group/ctbrowngrp/gtdb/gtdb-r202.metadata.v2.csv.gz")
+    p.add_argument("--output-csv", default="/group/ctbrowngrp/gtdb/gtdb-rs202.metadata.v2.csv.gz")
     args = p.parse_args()
     return main(args)
 

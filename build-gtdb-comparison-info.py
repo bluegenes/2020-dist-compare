@@ -14,6 +14,7 @@ ComparisonInfo = namedtuple('ComparisonInfo',
                           'comparison_name, accessionA, accessionB, lowest_common_rank, lowest_common_lineage, is_representativeA, is_representativeB')
 
 
+# not being used anymore...
 def find_lca(linA,linB, reverse_taxlist=["species", "genus", "family", "order", "class", "phylum", "superkingdom"]):
     lca_rank=None
     lca_lin=None
@@ -95,7 +96,7 @@ def main(args):
 def cmdline(sys_args):
     "Command line entry point w/argparse action."
     p = argparse.ArgumentParser()
-    p.add_argument("--gtdb-metadata",  default = "/group/ctbrowngrp/gtdb/gtdb-r202.metadata.v2.csv.gz")
+    p.add_argument("--gtdb-metadata",  default = "/group/ctbrowngrp/gtdb/gtdb-rs202.metadata.v2.csv.gz")
     p.add_argument("--taxonomy", default="gtdb", choices = ["gtdb", "ncbi"])
     p.add_argument("--output-csv", default="gtdb-pairwise-lca-comparisons.csv.gz")
     args = p.parse_args()
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     returncode = cmdline(sys.argv[1:])
     sys.exit(returncode)
 
-
+# function tested is no longer being used.
 def test_build_comparison_lowest_lca():
     lin1 = lca_utils.make_lineage('a;b;c')
     print(lin1)
