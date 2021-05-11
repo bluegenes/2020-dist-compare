@@ -37,6 +37,10 @@ def main(args):
     if args.taxonomy == "ncbi":
         taxonomy = "ncbi_taxonomy"
 
+    # if representatives_only:
+    if args.representatives_only:
+        metadataDF = metadataDF[metadataDF["gtdb_representative"] == "t"]
+
     # get dictionary of species_path :: accession
     acc2path = pd.Series(metadataDF[taxonomy].values,index=metadataDF.index).to_dict()
     reverse_taxlist = list(lca_utils.taxlist(include_strain=False))[::-1]
@@ -54,43 +58,47 @@ def main(args):
             # record identifer for that lineage
             rank_paths_to_acc[rank][tup].add(acc)
 
-    cInfo = []
     # iterate through pairwise comparisons
     unique_comparisons=set()
-    for rank in reverse_taxlist: #species --> superk
-        print(f"starting comparisons at rank: {rank}")
-        lineage_info_at_rank = rank_paths_to_acc[rank]
-        for lineage, accessions in lineage_info_at_rank.items():
-            if len(accessions) == 1:
-                continue
-            for n, (acc1, acc2) in enumerate(combinations(accessions, r = 2)):
-                lca_rank = rank
-                comparison_name = f"{acc1}_x_{acc2}"
-                comparison_set = frozenset([acc1,acc2])
-                # if we saw this comparison at a lower taxonomic rank, ignore here
-                if comparison_set in unique_comparisons:
+    with open(args.output_csv, "w") as outF:
+        # write header
+        outF.write(",".join(ComparisonInfo._fields) + "\n")
+        for rank in reverse_taxlist: #species --> superk
+            print(f"starting comparisons at rank: {rank}")
+            lineage_info_at_rank = rank_paths_to_acc[rank]
+            for lineage, accessions in lineage_info_at_rank.items():
+                if len(accessions) == 1:
                     continue
-                else:
-                    unique_comparisons.add(comparison_set)
+                for n, (acc1, acc2) in enumerate(combinations(accessions, r = 2)):
+                    lca_rank = rank
+                    comparison_name = f"{acc1}_x_{acc2}"
+                    comparison_set = frozenset([acc1,acc2])
+                    # if we saw this comparison at a lower taxonomic rank, ignore here
+                    if comparison_set in unique_comparisons:
+                        continue
+                    else:
+                        unique_comparisons.add(comparison_set)
 
-                if n !=0 and n % 10000 == 0:
-                    print(f"... checking {n}th comparison, {comparison_name}\n")
-                # check if either are gtdb representative genomes
-                rep1,rep2=False,False
-                if acc1 in representative_accs:
-                  rep1 = True
-                if acc2 in representative_accs:
-                  rep2 = True
-                if n !=0 and n % 1000 == 0:
-                    print(f"... adding lca comparison for rank {lca_rank}: {comparison_name}")
-                lca_lin = ";".join(lca_utils.zip_lineage(lineage, truncate_empty=True))
-                cInfo.append(ComparisonInfo(comparison_name,acc1,acc2,lca_rank,lca_lin,rep1,rep2))
+                    if n !=0 and n % 10000 == 0:
+                        print(f"... checking {n}th comparison, {comparison_name}\n")
+                    # check if either are gtdb representative genomes
+                    rep1,rep2=False,False
+                    if acc1 in representative_accs:
+                      rep1 = True
+                    if acc2 in representative_accs:
+                      rep2 = True
+                    if n !=0 and n % 1000 == 0:
+                        print(f"... adding lca comparison for rank {lca_rank}: {comparison_name}")
+                    lca_lin = ";".join(lca_utils.zip_lineage(lineage, truncate_empty=True))
+                    cInfo = ComparisonInfo(comparison_name,acc1,acc2,lca_rank,lca_lin,rep1,rep2)
+                    outF.write(",".join(map(str, cInfo)) + "\n")
 
+    ## too much mem required for this!
     # convert to pandas DF and write csv:
-    compareDF = pd.DataFrame.from_records(cInfo, columns = ComparisonInfo._fields)
+    #compareDF = pd.DataFrame.from_records(cInfo, columns = ComparisonInfo._fields)
     # sort by comparison level
-    compareDF.sort_values("lowest_common_rank", inplace=True)
-    compareDF.to_csv(args.output_csv, index=False)
+    #compareDF.sort_values("lowest_common_rank", inplace=True)
+    #compareDF.to_csv(args.output_csv, index=False)
 
 
 def cmdline(sys_args):
@@ -98,7 +106,8 @@ def cmdline(sys_args):
     p = argparse.ArgumentParser()
     p.add_argument("--gtdb-metadata",  default = "/group/ctbrowngrp/gtdb/gtdb-rs202.metadata.v2.csv.gz")
     p.add_argument("--taxonomy", default="gtdb", choices = ["gtdb", "ncbi"])
-    p.add_argument("--output-csv", default="gtdb-pairwise-lca-comparisons.csv.gz")
+    p.add_argument("--representatives-only", action="store_true")
+    p.add_argument("--output-csv", default="gtdb-pairwise-lca-comparisons.csv")
     args = p.parse_args()
     return main(args)
 
